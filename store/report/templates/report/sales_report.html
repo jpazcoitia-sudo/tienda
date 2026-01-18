@@ -171,7 +171,7 @@
                             <h4 class="card-title mb-0">Resumen General</h4>
                             <p>Total de Clientes: {{ total_clientes }}</p>
                             <p>Cantidad Total de Items Vendidos: {{ total_items_vendidos }}</p>
-                            <p>Total de Ventas: {{ total_ingresos|floatformat:2|intcomma }} Bs</p>
+                            <p>Total de Ventas: {{ total_ingresos|floatformat:2|intcomma }} AR$</p>
                         </div>
                     </div>
                     <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-6 d-flex justify-content-end align-items-center">
@@ -221,7 +221,7 @@
                             {% endfor %}
                             {% endif %}
                         </td>
-                        <td class="px-2 py-1 text-center">{{ sale.grand_total|floatformat:2|intcomma }} Bs</td>
+                        <td class="px-2 py-1 text-center">{{ sale.grand_total|floatformat:2|intcomma }} AR$</td>
                         <td class="px-2 py-1 text-center">{{ sale.total_items_sold }}</td>
                     </tr>
                     {% endfor %}

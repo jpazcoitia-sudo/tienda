@@ -50,9 +50,9 @@
             </td>
   
             <td class="text-center">{{ purchase.supplier }}</td>
-            <td class="text-center">{{ purchase.cost }}</td>
+            <td class="text-center">{{ purchase.cost|floatformat:2 }}</td>
             <td class="text-center">{{ purchase.qty }}</td>
-            <td class="text-center">{{ purchase.total }}</td>
+            <td class="text-center">{{ purchase.total|floatformat:2 }}</td>
             <td class="text-center">{{ purchase.date_updated|date:"d-m-Y H:i" }}</td>
             
             <td class="text-center">

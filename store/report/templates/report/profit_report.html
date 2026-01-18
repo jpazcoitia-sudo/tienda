@@ -168,9 +168,9 @@
                     <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-6">
                         <div class="mdc-card py-1">
                             <h4 class="card-title mb-0">Resumen de Ganancias</h4>
-                            <p>Total de Ventas: {{ total_ingresos|floatformat:2|intcomma }} Bs</p>
-                            <p>Total de Costos: {{ total_costos|floatformat:2|intcomma }} Bs</p>
-                            <p>Ganancia Neta: {{ total_ganancia|floatformat:2|intcomma }} Bs</p>
+                            <p>Total de Ventas: {{ total_ingresos|floatformat:2|intcomma }} AR$</p>
+                            <p>Total de Costos: {{ total_costos|floatformat:2|intcomma }} AR$</p>
+                            <p>Ganancia Neta: {{ total_ganancia|floatformat:2|intcomma }} AR$</p>
                         </div>
                     </div>
                     <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-6 d-flex justify-content-end align-items-center">
@@ -212,12 +212,12 @@
                     {% for sale in sales_data %}
                     <tr>
                         <td>{{ sale.date_added|date:"d-m-Y H:i" }}</td>
-                        <td>{{ sale.product_name }} - {{ sale.cost|default_if_none:"N/A" }} Bs</td>
+                        <td>{{ sale.product_name }} - {{ sale.cost|default_if_none:"N/A" }} AR$</td>
                         <td>{{ sale.qty_vendida }}</td>
                         <td>{{ sale.qty_comprada }}</td>
-                        <td>{{ sale.venta_total|intcomma }} Bs</td>
-                        <td>{{ sale.costo_total|intcomma }} Bs</td>
-                        <td>{{ sale.ganancia|intcomma }} Bs</td>
+                        <td>{{ sale.venta_total|intcomma }} AR$</td>
+                        <td>{{ sale.costo_total|intcomma }} AR$</td>
+                        <td>{{ sale.ganancia|intcomma }} AR$</td>
                     </tr>
                     {% endfor %}
                 </tbody>
