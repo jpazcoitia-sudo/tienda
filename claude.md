@@ -135,9 +135,9 @@ Precio Minorista = Costo x (1 + Margen_Minorista / 100)
 
 ## Prioridades de Desarrollo
 
-1. **FASE 1 - Correcciones Basicas** (necesarias para funcionamiento base)
-   - [ ] Corregir formato de decimales (8 a 2)
-   - [ ] Cambiar simbolo moneda (Bs a AR$)
+1. **FASE 1 - Correcciones Basicas** COMPLETADA
+   - [x] Corregir formato de decimales (8 a 2)
+   - [x] Cambiar simbolo moneda (Bs a AR$)
 
 2. **FASE 2 - Sistema de Precios** (feature principal)
    - [ ] Modificar modelo Product (agregar campos)
