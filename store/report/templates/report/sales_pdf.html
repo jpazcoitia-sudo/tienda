@@ -156,7 +156,7 @@
                         {% endfor %}
                         {% endif %}
                     </td>
-                    <td class="report-cell report-cell-total">{{ sale.grand_total|intcomma }} Bs</td>
+                    <td class="report-cell report-cell-total">{{ sale.grand_total|intcomma }} AR$</td>
                     <td class="report-cell report-cell-titems">{{ sale.total_items_sold }}</td>
                 </tr>
                 {% endfor %}
@@ -167,7 +167,7 @@
             <h3>Resumen General</h3>
             <p>Total de Clientes: {{ total_clientes }}</p>
             <p>Cantidad Total de Items Vendidos: {{ total_items_vendidos }}</p>
-            <p>Total de Ventas: {{ total_ingresos|floatformat:2|intcomma }} Bs</p>
+            <p>Total de Ventas: {{ total_ingresos|floatformat:2|intcomma }} AR$</p>
         </div>
     </div>
     <footer>

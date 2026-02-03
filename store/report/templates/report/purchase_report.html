@@ -171,7 +171,7 @@
                             <h4 class="card-title mb-0">Resumen General</h4>
                             <p>Total de Proveedores: {{ total_suppliers }}</p>
                             <p>Cantidad Total de Items Comprados: {{ total_items_comprados }}</p>
-                            <p>Total de Compras: {{ total_costos|intcomma }} Bs</p>
+                            <p>Total de Compras: {{ total_costos|floatformat:2|intcomma }} AR$</p>
                         </div>
                     </div>
                     <div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-6 d-flex justify-content-end align-items-center">
@@ -216,11 +216,11 @@
                         <td class="px-2 py-1 text-right">
                             {% if purchase.product_list %}
                             {% for product, details in purchase.product_list.items %}
-                            {{ product|capfirst }} - {{ details.cost }}<br>
+                            {{ product|capfirst }} - {{ details.cost|floatformat:2 }}<br>
                             {% endfor %}
                             {% endif %}
                         </td>
-                        <td class="px-2 py-1 text-center">{{ purchase.grand_total|floatformat:2 }} Bs</td>
+                        <td class="px-2 py-1 text-center">{{ purchase.grand_total|floatformat:2 }} AR$</td>
                         <td class="px-2 py-1 text-center">{{ purchase.total_items_bought }}</td>
                     </tr>
                     {% endfor %}

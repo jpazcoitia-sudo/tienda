@@ -70,9 +70,9 @@
                 </a>
               </td>
 
-              <td class="text-center">{{ product.cost }}</td>
+              <td class="text-center">AR$ {{ product.cost|floatformat:2 }}</td>
               <td class="text-center">{{ product.quantity }}</td>
-              <td class="text-center">{{ product.price }}</td>
+              <td class="text-center">AR$ {{ product.price|floatformat:2 }}</td>
               
               <td class="text-center">
                 {% if product.status == product.STATUS_ACTIVE %}

@@ -15,8 +15,8 @@
       <p><strong>Código:</strong> {{ product.code }}</p>
       <p><strong>Nombre:</strong> {{ product.name }}</p>
       <p><strong>Descripción:</strong> {{ product.description }}</p>
-      <p><strong>Costo:</strong> {{ product.cost }}</p>
-      <p><strong>Precio:</strong> {{ product.price }}</p>
+      <p><strong>Costo:</strong> AR$ {{ product.cost|floatformat:2 }}</p>
+      <p><strong>Precio:</strong> AR$ {{ product.price|floatformat:2 }}</p>
       <p><strong>Cantidad en Stock:</strong> {{ product.quantity }}</p>
       <p><strong>Cantidad Histórica:</strong> {{ cantidad_historica }}</p>
       <td class="text-center">

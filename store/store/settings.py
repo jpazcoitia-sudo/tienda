@@ -161,10 +161,7 @@ USE_TZ = False
 
 # original
 STATIC_URL = 'static/'
-STATICFILES_DIRS = (
-    # location of your application, should not be public web accessible 
-    './static',
-)
+STATICFILES_DIRS = [BASE_DIR / 'static']
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_REDIRECT_URL = '/'
