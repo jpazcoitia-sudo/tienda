@@ -61,27 +61,54 @@
                         {% endif %}
                     </div>
                 </div>
+                
+                <!-- SECCIÓN DE PRECIOS ACTUALIZADA -->
                 <div class="form-group row">
-                    <div class="col-md-6">
-                        <label for="{{ form.price.id_for_label }}" class="form-label">{{ form.price.label }}</label>
-                        {{ form.price }}
-                        {% if form.price.errors %}
+                    <div class="col-md-4">
+                        <label for="{{ form.cost.id_for_label }}" class="form-label">{{ form.cost.label }}</label>
+                        {{ form.cost }}
+                        {% if form.cost.errors %}
                             <div class="text-danger">
-                                {% for error in form.price.errors %}
+                                {% for error in form.cost.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{ form.margen_mayorista.id_for_label }}" class="form-label">{{ form.margen_mayorista.label }}</label>
+                        {{ form.margen_mayorista }}
+                        <small class="text-muted d-block" id="preview_mayorista">
+                            Precio: AR$ {{ products.precio_mayorista|floatformat:2 }}
+                        </small>
+                        {% if form.margen_mayorista.errors %}
+                            <div class="text-danger">
+                                {% for error in form.margen_mayorista.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{ form.margen_minorista.id_for_label }}" class="form-label">{{ form.margen_minorista.label }}</label>
+                        {{ form.margen_minorista }}
+                        <small class="text-muted d-block" id="preview_minorista">
+                            Precio: AR$ {{ products.precio_minorista|floatformat:2 }}
+                        </small>
+                        {% if form.margen_minorista.errors %}
+                            <div class="text-danger">
+                                {% for error in form.margen_minorista.errors %}
                                     <p>{{ error }}</p>
                                 {% endfor %}
                             </div>
                         {% endif %}
                     </div>
                 </div>
+                
                 <div class="form-group row">
                     <div class="col-md-6">
                         <label class="form-label">{{ form.status.label }}</label>
-                        {% if form.instance.status %}
-                            <span class="badge bg-success">Activo</span>
-                        {% else %}
-                            <span class="badge bg-warning">Inactivo</span>
-                        {% endif %}
+                        {{ form.status }}
                         {% if form.status.errors %}
                             <div class="text-danger">
                                 {% for error in form.status.errors %}
@@ -131,7 +158,32 @@
 
 {% block ScriptBlock %}
 <script>
-    
+    // Calcular precios en tiempo real
+    $(function() {
+        const costInput = $('#id_cost');
+        const margenMayInput = $('#id_margen_mayorista');
+        const margenMinInput = $('#id_margen_minorista');
+        const previewMay = $('#preview_mayorista');
+        const previewMin = $('#preview_minorista');
+        
+        function calcularPrecios() {
+            const costo = parseFloat(costInput.val()) || 0;
+            const margenMay = parseFloat(margenMayInput.val()) || 0;
+            const margenMin = parseFloat(margenMinInput.val()) || 0;
+            
+            if (costo > 0) {
+                const precioMay = costo * (1 + margenMay / 100);
+                const precioMin = costo * (1 + margenMin / 100);
+                
+                previewMay.text('Precio: AR$ ' + precioMay.toFixed(2));
+                previewMin.text('Precio: AR$ ' + precioMin.toFixed(2));
+            }
+        }
+        
+        costInput.on('input', calcularPrecios);
+        margenMayInput.on('input', calcularPrecios);
+        margenMinInput.on('input', calcularPrecios);
+    });
 </script>
 <style>
     .container {
@@ -150,11 +202,12 @@
         flex-wrap: nowrap;
         margin-bottom: 10px;
     }
-    .form-group .col-md-6 {
+    .form-group .col-md-6, .form-group .col-md-4 {
         flex: 1;
         padding-right: 10px;
     }
-    .form-group .col-md-6:last-child {
+    .form-group .col-md-6:last-child,
+    .form-group .col-md-4:last-child {
         padding-right: 0;
     }
     .form-label {
@@ -169,9 +222,4 @@
         gap: 10px; 
     }
 </style>
-<script>
-    $(function() {
-        
-    });
-</script>
 {% endblock %}

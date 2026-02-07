@@ -34,6 +34,13 @@ class Category(models.Model):
         
 
 class Products(models.Model):
+    """
+    Modelo de Producto con sistema de precios mayorista/minorista.
+
+    Los precios se calculan automaticamente basandose en el costo y los margenes:
+    - precio_mayorista = costo * (1 + margen_mayorista / 100)
+    - precio_minorista = costo * (1 + margen_minorista / 100)
+    """
     STATUS_INACTIVE = 0
     STATUS_ACTIVE = 1
     STATUS_CHOICES = [
@@ -45,8 +52,43 @@ class Products(models.Model):
     category = models.ForeignKey('Category', on_delete=models.SET_NULL, null=True)
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    cost = models.DecimalField(max_digits=18, decimal_places=8, default=0)
+
+    # Costo base del producto
+    cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name='Costo'
+    )
+
+    # Margenes de ganancia (en porcentaje)
+    margen_mayorista = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('20.00'),
+        verbose_name='Margen Mayorista (%)'
+    )
+    margen_minorista = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('35.00'),
+        verbose_name='Margen Minorista (%)'
+    )
+
+    # Precios calculados automaticamente (no editables directamente)
+    precio_mayorista = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name='Precio Mayorista'
+    )
+    precio_minorista = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name='Precio Minorista'
+    )
+
     status = models.IntegerField(choices=STATUS_CHOICES, default=STATUS_ACTIVE)
     date_added = models.DateTimeField(default=timezone.now)
     date_updated = models.DateTimeField(auto_now=True)
@@ -90,24 +132,72 @@ class Products(models.Model):
         self.update_status()
 
     def update_cost(self, new_cost):
+        """Actualiza el costo y recalcula los precios."""
         self.cost = new_cost
-        self.save(update_fields=['cost'])
+        self.calcular_precios()
+        self.save(update_fields=['cost', 'precio_mayorista', 'precio_minorista'])
         self.update_status()
 
+    def calcular_precios(self):
+        """
+        Calcula los precios mayorista y minorista basandose en el costo y margenes.
+
+        Formula: precio = costo * (1 + margen / 100)
+        """
+        if self.cost > Decimal('0'):
+            self.precio_mayorista = self.cost * (1 + self.margen_mayorista / Decimal('100'))
+            self.precio_minorista = self.cost * (1 + self.margen_minorista / Decimal('100'))
+            # Redondear a 2 decimales
+            self.precio_mayorista = self.precio_mayorista.quantize(Decimal('0.01'))
+            self.precio_minorista = self.precio_minorista.quantize(Decimal('0.01'))
+        else:
+            self.precio_mayorista = Decimal('0.00')
+            self.precio_minorista = Decimal('0.00')
+
+    def get_precio(self, tipo_lista='minorista'):
+        """
+        Obtiene el precio segun el tipo de lista.
+
+        Args:
+            tipo_lista: 'mayorista' o 'minorista' (default: 'minorista')
+
+        Returns:
+            Decimal: Precio correspondiente al tipo de lista
+        """
+        if tipo_lista == 'mayorista':
+            return self.precio_mayorista
+        return self.precio_minorista
+
     def clean(self):
+        """Validaciones del modelo."""
         super().clean()
-        if self.price <= Decimal('0'):
-            raise ValidationError("El precio debe ser mayor que cero.")
         if self.cost < Decimal('0'):
-            raise ValidationError("El costo no puede ser negativo.")
-    
+            raise ValidationError({'cost': "El costo no puede ser negativo."})
+        if self.margen_mayorista < Decimal('0'):
+            raise ValidationError({'margen_mayorista': "El margen mayorista no puede ser negativo."})
+        if self.margen_minorista < Decimal('0'):
+            raise ValidationError({'margen_minorista': "El margen minorista no puede ser negativo."})
+
     def save(self, *args, **kwargs):
-        self.full_clean()
+        """Guarda el producto calculando los precios automaticamente."""
+        # Solo validar si no es una actualizacion parcial de campos especificos
+        update_fields = kwargs.get('update_fields')
+        if update_fields is None or 'cost' in update_fields or 'margen_mayorista' in update_fields or 'margen_minorista' in update_fields:
+            self.calcular_precios()
+
+        # Validar solo en creacion o actualizacion completa
+        if update_fields is None:
+            self.full_clean()
+
         super().save(*args, **kwargs)
-        self.update_status()
-        
+
+        # Actualizar status solo si no es una actualizacion de status
+        if update_fields is None or 'status' not in update_fields:
+            self.update_status()
+
     def update_status(self):
-        if self.quantity > 0 and self.cost > Decimal('0') and self.price > Decimal('0'):
+        """Actualiza el estado del producto basandose en cantidad, costo y precio."""
+        if self.quantity > 0 and self.cost > Decimal('0') and self.precio_minorista > Decimal('0'):
             if self.status != self.STATUS_ACTIVE:
                 self.status = self.STATUS_ACTIVE
                 self.save(update_fields=['status'])
@@ -139,8 +229,21 @@ class Products(models.Model):
         return last_purchase.quantity if last_purchase else 0
 
     @property
-    def profit_margin(self):
-        if self.cost > 0:
-            return (self.price - self.cost) / self.cost
-        return None
-    # !no funciono porbar solo la eliminacion don pruchase
+    def profit_margin_mayorista(self):
+        """Retorna el margen de ganancia mayorista como decimal (ej: 0.20 = 20%)."""
+        return self.margen_mayorista / Decimal('100')
+
+    @property
+    def profit_margin_minorista(self):
+        """Retorna el margen de ganancia minorista como decimal (ej: 0.35 = 35%)."""
+        return self.margen_minorista / Decimal('100')
+
+    @property
+    def ganancia_mayorista(self):
+        """Retorna la ganancia por unidad en precio mayorista."""
+        return self.precio_mayorista - self.cost
+
+    @property
+    def ganancia_minorista(self):
+        """Retorna la ganancia por unidad en precio minorista."""
+        return self.precio_minorista - self.cost

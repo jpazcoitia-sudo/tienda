@@ -7,7 +7,7 @@ class CategoryAdmin(admin.ModelAdmin):
     list_filter = ('status', 'date_added', 'date_updated')
 
 class ProductsAdmin(admin.ModelAdmin):
-    list_display = ('code', 'name', 'category', 'price', 'status', 'quantity', 'date_added', 'date_updated')
+    list_display = ('code', 'name', 'category', 'cost', 'precio_minorista', 'precio_mayorista', 'status', 'quantity', 'date_added', 'date_updated')
     search_fields = ('code', 'name', 'description')
     list_filter = ('status', 'category', 'date_added', 'date_updated')
     

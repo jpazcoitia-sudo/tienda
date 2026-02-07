@@ -188,10 +188,11 @@ class MixPDFSalesDayView(FormView):
                 product_name = item.product.name
                 products_list[product_name] = {
                     'qty': item.qty,
-                    'price': item.product.price,
+                    'price': item.price,  # CAMBIO: Usar precio de la venta
                     'cost': item.product.cost,
                 }
-                item_profit = Decimal(item.qty) * (item.product.price - item.product.cost)
+                # CAMBIO: Calcular ganancia con el precio usado en la venta
+                item_profit = Decimal(item.qty) * (Decimal(item.price) - item.product.cost)
                 net_profit_total += item_profit
             total_net_profit += net_profit_total
             sale_details.append({
@@ -291,10 +292,11 @@ class MixTramoPDFSalesDayView(FormView):
                 product_name = item.product.name
                 products_list[product_name] = {
                     'qty': item.qty,
-                    'price': item.product.price,
+                    'price': item.price,  # CAMBIO: Usar precio de la venta
                     'cost': item.product.cost,
                 }
-                item_profit = Decimal(item.qty) * (item.product.price - item.product.cost)
+                # CAMBIO: Calcular ganancia con el precio usado en la venta
+                item_profit = Decimal(item.qty) * (Decimal(item.price) - item.product.cost)
                 net_profit_total += item_profit
             total_net_profit += net_profit_total
             sale_details.append({
@@ -355,5 +357,3 @@ class MixTramoPDFSalesDayView(FormView):
         start_date = datetime(start_year, start_month, start_day)
         end_date = datetime(end_year, end_month, end_day)
         return start_date <= end_date
-
-

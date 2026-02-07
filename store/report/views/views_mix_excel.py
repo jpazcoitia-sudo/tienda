@@ -135,8 +135,8 @@ class ProductQtyExcelView(View):
         ws = wb.active
         ws.title = "Productos"
 
-    
-        headers = ['Nombre', 'Descripción', 'Fecha de agregado', 'Cantidad', 'Precio', 'Costo']
+        # CAMBIO: Agregamos las 3 columnas de precios
+        headers = ['Nombre', 'Descripción', 'Fecha de agregado', 'Cantidad', 'Costo', 'Precio Mayorista', 'Precio Minorista']
         ws.append(headers)
 
 
@@ -146,8 +146,9 @@ class ProductQtyExcelView(View):
                 product.description,
                 product.date_added.strftime('%Y-%m-%d %H:%M:%S'),
                 product.cantidad,
-                product.price,
                 product.cost,
+                product.precio_mayorista,  # CAMBIO: Precio mayorista
+                product.precio_minorista,  # CAMBIO: Precio minorista
             ]
             ws.append(product_data)
 
@@ -202,10 +203,11 @@ class MixExcelSalesDayView(FormView):
                 product_name = item.product.name
                 products_list[product_name] = {
                     'qty': item.qty,
-                    'price': item.product.price,
+                    'price': item.price,  # CAMBIO: Usar precio de la venta, no del producto actual
                     'cost': item.product.cost,
                 }
-                item_profit = Decimal(item.qty) * (item.product.price - item.product.cost)
+                # CAMBIO: Calcular ganancia con el precio usado en la venta
+                item_profit = Decimal(item.qty) * (Decimal(item.price) - item.product.cost)
                 net_profit_total += item_profit
             total_net_profit += net_profit_total
             sale_details.append({
@@ -313,10 +315,11 @@ class MixTramoExcelSalesDayView(FormView):
                 product_name = item.product.name
                 products_list[product_name] = {
                     'qty': item.qty,
-                    'price': item.product.price,
+                    'price': item.price,  # CAMBIO: Usar precio de la venta
                     'cost': item.product.cost,
                 }
-                item_profit = Decimal(item.qty) * (item.product.price - item.product.cost)
+                # CAMBIO: Calcular ganancia con el precio usado en la venta
+                item_profit = Decimal(item.qty) * (Decimal(item.price) - item.product.cost)
                 net_profit_total += item_profit
             total_net_profit += net_profit_total
             sale_details.append({

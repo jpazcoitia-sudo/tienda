@@ -19,8 +19,8 @@
         .table th {
             background-color: #f2f2f2;
         }
-        .table th:nth-child(4), .table th:nth-child(5), .table th:nth-child(6), 
-        .table td:nth-child(4), .table td:nth-child(5), .table td:nth-child(6) {
+        .table th:nth-child(4), .table th:nth-child(5), .table th:nth-child(6), .table th:nth-child(7), 
+        .table td:nth-child(4), .table td:nth-child(5), .table td:nth-child(6), .table td:nth-child(7) {
             text-align: center;
         }
     </style>
@@ -35,8 +35,9 @@
                 <th>Descripción</th>
                 <th>Fecha de agregado</th>
                 <th>Cantidad</th>
-                <th>Precio</th>
                 <th>Costo</th>
+                <th>Precio Mayorista</th>
+                <th>Precio Minorista</th>
             </tr>
         </thead>
         <tbody>
@@ -46,8 +47,9 @@
                 <td>{{ product.description }}</td>
                 <td>{{ product.date_added }}</td>
                 <td style="text-align: center;">{{ product.cantidad }}</td>
-                <td style="text-align: center;">{{ product.price }}</td>
-                <td style="text-align: center;">{{ product.cost }}</td>
+                <td style="text-align: center;">AR$ {{ product.cost|floatformat:2 }}</td>
+                <td style="text-align: center;">AR$ {{ product.precio_mayorista|floatformat:2 }}</td>
+                <td style="text-align: center;">AR$ {{ product.precio_minorista|floatformat:2 }}</td>
             </tr>
             {% endfor %}
         </tbody>

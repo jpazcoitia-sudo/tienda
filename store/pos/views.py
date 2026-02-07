@@ -19,11 +19,17 @@ from django.db import transaction
 @permission_required('pos.view_sales', raise_exception=True)
 def pos(request):
     
-    
     products = Products.objects.filter(status=1).order_by('name')
     product_json = []
     for product in products:
-        product_json.append({'id': product.id, 'name': product.name, 'price': float(product.price)})
+        # CAMBIO: Agregar ambos precios para que el frontend pueda elegir
+        product_json.append({
+            'id': product.id, 
+            'name': product.name, 
+            'precio_mayorista': float(product.precio_mayorista),
+            'precio_minorista': float(product.precio_minorista),
+            'price': float(product.precio_minorista)  # Por defecto minorista
+        })
     context = {
         'page_title': "Point of Sale",
         'products': products,
@@ -59,6 +65,9 @@ def save_pos(request):
     code = str(pref) + str(code)
 
     try:
+        # CAMBIO: Guardar tipo de lista de precios si se envía
+        tipo_lista = data.get('tipo_lista', 'minorista')
+        
         sales = Sales(
             code=code,
             sub_total=data['sub_total'],
@@ -68,6 +77,10 @@ def save_pos(request):
             tendered_amount=data['tendered_amount'],
             amount_change=data['amount_change']
         )
+        
+        # Si el modelo Sales tiene el campo tipo_lista, descomenta esto:
+        # sales.tipo_lista = tipo_lista
+        
         sales.save()
 
         sale_id = sales.pk
@@ -75,13 +88,13 @@ def save_pos(request):
         for prod_id in data.getlist('product[]'):
             product = get_object_or_404(Products, id=prod_id)
             qty = data.getlist('qty[]')[i]
-            price = data.getlist('price[]')[i]
+            price = data.getlist('price[]')[i]  # El precio ya viene del frontend
             total = float(qty) * float(price)
             sales_item = salesItems(
                 sale=sales,
                 product=product,
                 qty=qty,
-                price=price,
+                price=price,  # Se guarda el precio usado en el momento de la venta
                 total=total
             )
             sales_item.save()
@@ -126,17 +139,24 @@ def salesList(request):
 
 @login_required
 @permission_required('pos.add_sales', raise_exception=True)
-def create_sales_item(request, product_id, qty, sale_instance):
+def create_sales_item(request, product_id, qty, sale_instance, tipo_lista='minorista'):
     product = get_object_or_404(Products, id=product_id)
     try:
         qty = int(qty)
         if product.cantidad < qty:
             return JsonResponse({"error": "No hay suficiente cantidad de producto para vender."}, status=400)
+        
+        # CAMBIO: Obtener precio según tipo de lista
+        if tipo_lista == 'mayorista':
+            precio_venta = product.precio_mayorista
+        else:
+            precio_venta = product.precio_minorista
+            
         sales_item = salesItems.objects.create(
             product=product,
             qty=qty,
-            price=product.price,
-            total=product.price * qty,
+            price=precio_venta,  # Usar el precio correspondiente
+            total=precio_venta * qty,
             sale=sale_instance
         )
         product.update_quantity_on_sale(qty)
@@ -151,6 +171,7 @@ def create_sale(request):
     if request.method == "POST":
         sale_code = request.POST.get('code')
         items = json.loads(request.POST.get('items'))
+        tipo_lista = request.POST.get('tipo_lista', 'minorista')  # CAMBIO: Obtener tipo de lista
 
         sale = Sales.objects.create(
             code=sale_code,
@@ -161,11 +182,15 @@ def create_sale(request):
             tendered_amount=0,
             amount_change=0,
         )
+        
+        # Si el modelo Sales tiene el campo tipo_lista, descomenta esto:
+        # sale.tipo_lista = tipo_lista
+        # sale.save()
 
         for item in items:
             product_id = item['product_id']
             qty = item['qty']
-            response = create_sales_item(request, product_id, qty, sale)
+            response = create_sales_item(request, product_id, qty, sale, tipo_lista)  # CAMBIO: Pasar tipo_lista
             if response.status_code == 400:
                 sale.delete()
                 return response
@@ -191,13 +216,12 @@ def receipt(request):
         transaction['tax_amount'] = format(float(transaction['tax_amount']))
     ItemList = salesItems.objects.filter(sale=sales).all()
     
-        # Cambiar el idioma a español para la fecha
+    # Cambiar el idioma a español para la fecha
     with translation.override('es'):
         formatted_date = DateFormat(sales.date_added).format('d \de F Y')
     context = {
         "transaction": transaction,
         "salesItems": ItemList,
-        
         "formatted_date": formatted_date,
     }
     return render(request, 'pos/receipt.html', context)

@@ -11,6 +11,23 @@
 <div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
     <div class="mdc-card">
         <form action="" id="pos-form">
+            <!-- NUEVO: Selector de Lista de Precios -->
+            <fieldset class="mb-3">
+                <legend>Tipo de Lista de Precios</legend>
+                <div class="row">
+                    <div class="col-lg-4 col-md-6 col-sm-12">
+                        <div class="form-group mb-3">
+                            <label for="tipo-lista" class="form-label fw-bold">Seleccione Lista:</label>
+                            <select id="tipo-lista" name="tipo_lista" class="form-select form-select-lg">
+                                <option value="minorista" selected>🔵 Minorista (Público General)</option>
+                                <option value="mayorista">🟢 Mayorista (Revendedores)</option>
+                            </select>
+                            <small class="text-muted">Los precios se actualizarán según la lista seleccionada</small>
+                        </div>
+                    </div>
+                </div>
+            </fieldset>
+            
             <fieldset>
                 <legend>Agregar Producto </legend>
                 <div class="row align-items-end">
@@ -133,6 +150,16 @@
         });
     }
 
+    // NUEVO: Función para obtener el precio según lista seleccionada
+    function getPrecioActual(product_data) {
+        var tipo_lista = $('#tipo-lista').val();
+        if (tipo_lista === 'mayorista') {
+            return product_data.precio_mayorista;
+        } else {
+            return product_data.precio_minorista;
+        }
+    }
+
     function calc() {
         var sub_total = 0;
         var grand_total = 0;
@@ -156,10 +183,38 @@
         $('[name="sub_total"]').val(parseFloat(sub_total));
     }
 
+    // NUEVO: Actualizar precios cuando cambia el tipo de lista
+    function actualizarPreciosEnTabla() {
+        $('#POS-field table tbody tr').each(function() {
+            var product_id = $(this).find('[name="product[]"]').val();
+            var qty = $(this).find('[name="qty[]"]').val();
+            
+            if (!!prod_arr[product_id]) {
+                var data = prod_arr[product_id];
+                var nuevo_precio = getPrecioActual(data);
+                
+                // Actualizar precio en el item
+                $(this).find('[name="price[]"]').val(nuevo_precio);
+                $(this).find('.product_price').text(parseFloat(nuevo_precio).toLocaleString('en-US'));
+                $(this).find('.product_total').text(parseFloat(nuevo_precio * qty).toLocaleString('en-US'));
+            }
+        });
+        calc();
+    }
+
     $(function() {
         $('#product-id').select2({
             placeholder: "Por favor, Seleccione su Producto",
             width: '100%'
+        });
+
+        // NUEVO: Listener para cambio de tipo de lista
+        $('#tipo-lista').change(function() {
+            if ($('#POS-field table tbody tr').length > 0) {
+                if (confirm('¿Desea actualizar los precios de los productos en el carrito según la nueva lista?')) {
+                    actualizarPreciosEnTabla();
+                }
+            }
         });
 
         $('#add_item').click(function() {
@@ -175,13 +230,15 @@
                     return false;
                 }
                 var data = prod_arr[id];
+                var precio_actual = getPrecioActual(data); // CAMBIO: Usar precio según lista
+                
                 var tr = $($('noscript#item-clone').html()).clone();
                 tr.find('[name="qty[]"]').val(qty);
                 tr.find('[name="product[]"]').val(id);
-                tr.find('[name="price[]"]').val(data.price);
+                tr.find('[name="price[]"]').val(precio_actual);
                 tr.find('.product_name').text(data.name);
-                tr.find('.product_price').text(parseFloat(data.price).toLocaleString('en-US'));
-                tr.find('.product_total').text(parseFloat(data.price * qty).toLocaleString('en-US'));
+                tr.find('.product_price').text(parseFloat(precio_actual).toLocaleString('en-US'));
+                tr.find('.product_total').text(parseFloat(precio_actual * qty).toLocaleString('en-US'));
                 $('#POS-field table tbody').append(tr);
                 $('#product-id').val('').trigger('change');
                 $('#product-qty').val(1);
