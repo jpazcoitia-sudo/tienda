@@ -16,7 +16,10 @@
                 <div class="form-group row">
                     <div class="col-md-6">
                         <label for="{{ form.name.id_for_label }}" class="form-label">{{ form.name.label }}</label>
-                        {{ form.name }}
+                        <input type="text" name="{{ form.name.name }}" id="{{ form.name.id_for_label }}" 
+                               class="form-control form-control-normal" 
+                               value="{{ form.name.value|default:'' }}" 
+                               maxlength="200" required>
                         {% if form.name.errors %}
                             <div class="text-danger">
                                 {% for error in form.name.errors %}
@@ -27,7 +30,9 @@
                     </div>
                     <div class="col-md-6">
                         <label for="{{ form.description.id_for_label }}" class="form-label">{{ form.description.label }}</label>
-                        {{ form.description }}
+                        <textarea name="{{ form.description.name }}" id="{{ form.description.id_for_label }}" 
+                                  class="form-control form-control-textarea" 
+                                  rows="3">{{ form.description.value|default:'' }}</textarea>
                         {% if form.description.errors %}
                             <div class="text-danger">
                                 {% for error in form.description.errors %}
@@ -43,8 +48,9 @@
                         {% if form.instance.status %}
                             <span class="badge bg-success">Activo</span>
                         {% else %}
-                            <span class="badge bg-warning">Inactivo</span>
+                            <span class="badge bg-success">Activo</span>
                         {% endif %}
+                        <input type="hidden" name="{{ form.status.name }}" value="1">
                         {% if form.status.errors %}
                             <div class="text-danger">
                                 {% for error in form.status.errors %}
@@ -127,6 +133,21 @@
     .btn-group {
         display: flex;
         gap: 10px; 
+    }
+    
+    /* NUEVO: Controlar tamaño de inputs */
+    .form-control-normal {
+        height: 38px;
+        padding: 6px 12px;
+        font-size: 14px;
+    }
+    
+    .form-control-textarea {
+        min-height: 80px;
+        max-height: 120px;
+        padding: 6px 12px;
+        font-size: 14px;
+        resize: vertical;
     }
 </style>
 <script>

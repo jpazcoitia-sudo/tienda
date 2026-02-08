@@ -3,41 +3,69 @@
     <form action="" id="checkout-form">
         <div class="form-group mb-3">
             <label for="payable_amount" class="control-label">Monto a Pagar</label>
-            <input type="text" id="payable_amount" class="form-control form-control-lg rounded-0 text-end" value="{{ grand_total|intcomma }}" required disabled>
+            <input type="text" id="payable_amount" class="form-control form-control-lg rounded-0 text-end" value="{{ grand_total }}" required disabled>
         </div>
         <div class="form-group mb-3">
             <label for="tendered_amount" class="control-label">Monto recibido</label>
-            <input type="number" step="any" id="tendered_amount" class="form-control form-control-lg rounded-0 text-end" value="0" required>
+            <input type="number" step="any" id="tendered_amount" class="form-control form-control-lg rounded-0 text-end" value="" placeholder="0.00" required>
         </div>
         <div class="form-group mb-3">
             <label for="payment_change" class="control-label">Cambio/Vuelto</label>
-            <input type="text" id="payment_change" class="form-control form-control-lg rounded-0 text-end" value="{{ 0|intcomma }}" required disabled>
+            <input type="text" id="payment_change" class="form-control form-control-lg rounded-0 text-end" value="0.00" required disabled>
         </div>
     </form>
 </div>
 <script>
-    $(function() {
-        $('#tendered_amount').on('input keypress keyup keydown', function() {
-            var tendered_amount = $('#tendered_amount').val()
-            var payable = $('#payable_amount').val()
-            tendered_amount = tendered_amount.replace(/,/gi, '')
-            payable = payable.replace(/,/gi, '')
-            var change = 0
-            tendered_amount = tendered_amount > 0 ? tendered_amount : 0;
-            $('[name="tendered_amount"]').val(tendered_amount)
-            change = parseFloat(tendered_amount) - parseFloat(payable)
-            console.log(tendered_amount, payable)
-            $('#payment_change').val(parseFloat(change).toLocaleString('en-US'))
-            $('[name="amount_change"]').val(change)
+    // Función para formatear números con separador de miles
+    function formatNumber(num) {
+        return parseFloat(num).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+    
+    // Función para limpiar formato y obtener número
+    function cleanNumber(str) {
+        return parseFloat(String(str).replace(/[,\s]/g, '')) || 0;
+    }
 
-        })
+    $(function() {
+        // Formatear el monto a pagar al cargar
+        var payableAmount = cleanNumber($('#payable_amount').val());
+        $('#payable_amount').val(formatNumber(payableAmount));
+        
+        // Seleccionar todo el texto al hacer foco en el campo
+        $('#tendered_amount').on('focus', function() {
+            $(this).select();
+        });
+        
+        $('#tendered_amount').on('input keypress keyup keydown', function() {
+            var tenderedAmount = cleanNumber($('#tendered_amount').val());
+            var payable = cleanNumber($('#payable_amount').val());
+            
+            // Guardar valores limpios en campos hidden del formulario principal
+            $('[name="tendered_amount"]').val(tenderedAmount);
+            
+            // Calcular cambio
+            var change = tenderedAmount - payable;
+            
+            console.log('Monto recibido:', tenderedAmount);
+            console.log('Monto a pagar:', payable);
+            console.log('Cambio:', change);
+            
+            // Mostrar cambio formateado
+            $('#payment_change').val(formatNumber(change));
+            $('[name="amount_change"]').val(change.toFixed(2));
+        });
+        
         $('#checkout-form').submit(function(e) {
             e.preventDefault();
-            if ($('[name="amount_change"]').val() < 0) {
-                alert("Monto recibido debajo de Monto a pagar.")
+            var change = parseFloat($('[name="amount_change"]').val());
+            
+            if (change < 0) {
+                alert("Monto recibido es menor al Monto a pagar.");
                 return false;
             }
-            $('#pos-form').submit()
-        })
-    })
+            
+            // Enviar formulario principal del POS
+            $('#pos-form').submit();
+        });
+    });
 </script>

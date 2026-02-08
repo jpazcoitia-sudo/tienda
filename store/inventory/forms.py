@@ -1,4 +1,6 @@
 from django import forms
+from django.core.exceptions import ValidationError
+import unicodedata
 from .models import Category, Products
 
 
@@ -6,13 +8,17 @@ class CategoryForm(forms.ModelForm):
     def clean_name(self):
         name = self.cleaned_data.get('name')
         
+        # Normalizar el nombre ingresado (eliminar acentos)
+        normalized_name = ''.join(c for c in unicodedata.normalize('NFD', name)
+                                if unicodedata.category(c) != 'Mn')
+        
         # Buscar categorías existentes con nombres similares
         existing_categories = Category.objects.exclude(id=self.instance.id)
         
         for category in existing_categories:
             category_normalized = ''.join(c for c in unicodedata.normalize('NFD', category.name)
                                         if unicodedata.category(c) != 'Mn')
-            if category_normalized == normalized_name:
+            if category_normalized.lower() == normalized_name.lower():
                 raise ValidationError(f"Ya existe una categoría similar: {category.name}")
         
         return name
