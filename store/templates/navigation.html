@@ -41,6 +41,12 @@
                 </div>
     
                 <hr class="separator" style="margin: 5px 0;">
+                <!-- NUEVO: Enlace a Clientes -->
+                <div class="mdc-list-item mdc-drawer-item">
+                    <a class="mdc-drawer-link" href="{% url 'customers:customer_list' %}">
+                        <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon" aria-hidden="true">people</i> Clientes
+                    </a>
+                </div>
                 <div class="mdc-list-item mdc-drawer-item">
                     <a class="mdc-drawer-link" href="{% url 'purchase:supplier_list' %}" >
                         <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon" aria-hidden="true">local_shipping</i> Proveedores

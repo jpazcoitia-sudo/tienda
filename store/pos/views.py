@@ -3,6 +3,7 @@ from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.decorators import login_required
 from .models import *
 from inventory.models import *
+from customers.models import Cliente  # NUEVO: Importar modelo Cliente
 from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime
 import json
@@ -30,10 +31,15 @@ def pos(request):
             'precio_minorista': float(product.precio_minorista),
             'price': float(product.precio_minorista)  # Por defecto minorista
         })
+    
+    # NUEVO: Obtener lista de clientes activos
+    clientes = Cliente.objects.filter(activo=True).order_by('name')
+    
     context = {
         'page_title': "Point of Sale",
         'products': products,
-        'product_json': json.dumps(product_json)
+        'product_json': json.dumps(product_json),
+        'clientes': clientes,  # NUEVO: Pasar clientes al template
     }
     return render(request, 'pos/pos.html', context)
 
@@ -65,7 +71,16 @@ def save_pos(request):
     code = str(pref) + str(code)
 
     try:
-        # CAMBIO: Guardar tipo de lista de precios si se envía
+        # NUEVO: Obtener cliente seleccionado (si existe)
+        cliente_id = data.get('cliente_id', None)
+        cliente = None
+        if cliente_id and cliente_id != '':
+            try:
+                cliente = Cliente.objects.get(pk=cliente_id)
+            except Cliente.DoesNotExist:
+                cliente = None
+        
+        # CAMBIO: Guardar tipo de lista de precios
         tipo_lista = data.get('tipo_lista', 'minorista')
         
         sales = Sales(
@@ -75,11 +90,10 @@ def save_pos(request):
             tax_amount=data['tax_amount'],
             grand_total=data['grand_total'],
             tendered_amount=data['tendered_amount'],
-            amount_change=data['amount_change']
+            amount_change=data['amount_change'],
+            cliente=cliente,  # NUEVO: Asignar cliente
+            tipo_lista=tipo_lista  # Guardar tipo de lista
         )
-        
-        # Si el modelo Sales tiene el campo tipo_lista, descomenta esto:
-        # sales.tipo_lista = tipo_lista
         
         sales.save()
 
@@ -102,7 +116,13 @@ def save_pos(request):
 
         resp['status'] = 'success'
         resp['sale'] = sale_id
-        messages.success(request, "La venta fue registrada.")
+        
+        # NUEVO: Mensaje personalizado según si hay cliente o no
+        if cliente:
+            messages.success(request, f"Venta registrada para {cliente.name}.")
+        else:
+            messages.success(request, "Venta registrada (Cliente General).")
+            
     except Exception as e:
         resp['msg'] = "An error occurred: " + str(e)
 
@@ -118,6 +138,10 @@ def salesList(request):
         for field in sale._meta.get_fields(include_parents=False):
             if field.related_model is None:
                 data[field.name] = getattr(sale, field.name)
+        
+        # NUEVO: Agregar nombre del cliente
+        data['cliente_nombre'] = sale.get_nombre_cliente()
+        
         items = salesItems.objects.filter(sale_id=sale).all()
         products_list = {}
         for item in items:
@@ -171,7 +195,16 @@ def create_sale(request):
     if request.method == "POST":
         sale_code = request.POST.get('code')
         items = json.loads(request.POST.get('items'))
-        tipo_lista = request.POST.get('tipo_lista', 'minorista')  # CAMBIO: Obtener tipo de lista
+        tipo_lista = request.POST.get('tipo_lista', 'minorista')
+        
+        # NUEVO: Obtener cliente si se envió
+        cliente_id = request.POST.get('cliente_id', None)
+        cliente = None
+        if cliente_id and cliente_id != '':
+            try:
+                cliente = Cliente.objects.get(pk=cliente_id)
+            except Cliente.DoesNotExist:
+                cliente = None
 
         sale = Sales.objects.create(
             code=sale_code,
@@ -181,16 +214,14 @@ def create_sale(request):
             tax=0,
             tendered_amount=0,
             amount_change=0,
+            cliente=cliente,  # NUEVO: Asignar cliente
+            tipo_lista=tipo_lista
         )
-        
-        # Si el modelo Sales tiene el campo tipo_lista, descomenta esto:
-        # sale.tipo_lista = tipo_lista
-        # sale.save()
 
         for item in items:
             product_id = item['product_id']
             qty = item['qty']
-            response = create_sales_item(request, product_id, qty, sale, tipo_lista)  # CAMBIO: Pasar tipo_lista
+            response = create_sales_item(request, product_id, qty, sale, tipo_lista)
             if response.status_code == 400:
                 sale.delete()
                 return response
@@ -214,6 +245,10 @@ def receipt(request):
             transaction[field.name] = getattr(sales, field.name)
     if 'tax_amount' in transaction:
         transaction['tax_amount'] = format(float(transaction['tax_amount']))
+    
+    # NUEVO: Agregar nombre del cliente al recibo
+    transaction['cliente_nombre'] = sales.get_nombre_cliente()
+    
     ItemList = salesItems.objects.filter(sale=sales).all()
     
     # Cambiar el idioma a español para la fecha

@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block pageContent %}
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card py-2">
+        <div class="d-flex justify-content-between align-items-center">
+            <h4 class="card-title mb-0">Lista de Clientes</h4>
+            <a href="{% url 'customers:customer_create' %}" class="btn btn-primary btn-sm">
+                <i class="mdi mdi-plus"></i> Nuevo Cliente
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card">
+        <!-- Filtros de búsqueda -->
+        <div class="card-body">
+            <form method="get" class="row g-3 mb-3">
+                <div class="col-md-5">
+                    {{ search_form.search }}
+                </div>
+                <div class="col-md-3">
+                    {{ search_form.tipo_cliente }}
+                </div>
+                <div class="col-md-2">
+                    {{ search_form.activo }}
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="mdi mdi-magnify"></i> Buscar
+                    </button>
+                </div>
+            </form>
+            
+            <!-- Estadísticas -->
+            <div class="alert alert-info">
+                <i class="mdi mdi-information"></i>
+                Total de clientes activos: <strong>{{ total_clientes }}</strong>
+            </div>
+            
+            <!-- Tabla de clientes -->
+            <div class="table-responsive">
+                <table class="table table-hover" id="clientesTable">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>DNI/CUIT</th>
+                            <th>Teléfono</th>
+                            <th>Email</th>
+                            <th>Tipo</th>
+                            <th>Estado</th>
+                            <th>Fecha Registro</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cliente in clientes %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'customers:customer_detail' cliente.pk %}">
+                                    {{ cliente.name }}
+                                </a>
+                            </td>
+                            <td>{{ cliente.dni }}</td>
+                            <td>{{ cliente.phone|default:"-" }}</td>
+                            <td>{{ cliente.email|default:"-" }}</td>
+                            <td>
+                                <span class="badge bg-{{ cliente.get_tipo_cliente_display_badge }}">
+                                    {{ cliente.get_tipo_cliente_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if cliente.activo %}
+                                    <span class="badge bg-success">Activo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactivo</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ cliente.date_added|date:"d/m/Y" }}</td>
+                            <td>
+                                <a href="{% url 'customers:customer_detail' cliente.pk %}" 
+                                   class="btn btn-sm btn-info" title="Ver detalle">
+                                    <i class="mdi mdi-eye"></i>
+                                </a>
+                                <a href="{% url 'customers:customer_update' cliente.pk %}" 
+                                   class="btn btn-sm btn-warning" title="Editar">
+                                    <i class="mdi mdi-pencil"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center">
+                                No se encontraron clientes.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Paginación -->
+            {% if is_paginated %}
+            <nav aria-label="Navegación de páginas">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1">Primera</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+                    </li>
+                    {% endif %}
+                    
+                    <li class="page-item active">
+                        <span class="page-link">
+                            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                        </span>
+                    </li>
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Siguiente</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Última</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock pageContent %}
+
+{% block ScriptBlock %}
+<script>
+    $(document).ready(function() {
+        $('#clientesTable').DataTable({
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/Spanish.json"
+            },
+            "pageLength": 20,
+            "order": [[6, "desc"]]  // Ordenar por fecha de registro desc
+        });
+    });
+</script>
+{% endblock ScriptBlock %}

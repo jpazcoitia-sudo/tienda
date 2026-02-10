@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-a*it=^1qxy^2^aqmo&xq_21g$+i-)bun%*1uw%xo*lqhq8x7+9
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", "192.168.180.20", "192.168.180.16"]
 
 
 # Application definition
@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'pos',
     'purchase',
     'report',
+    'customers',
     # install in 3rd party
     # openpyxl
     # xmtl2pdf

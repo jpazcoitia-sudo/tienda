@@ -11,13 +11,30 @@
 <div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
     <div class="mdc-card">
         <form action="" id="pos-form">
-            <!-- NUEVO: Selector de Lista de Precios -->
+            <!-- NUEVO: Selector de Cliente y Tipo de Lista -->
             <fieldset class="mb-3">
-                <legend>Tipo de Lista de Precios</legend>
+                <legend>Información del Cliente</legend>
                 <div class="row">
-                    <div class="col-lg-4 col-md-6 col-sm-12">
+                    <div class="col-lg-6 col-md-6 col-sm-12">
                         <div class="form-group mb-3">
-                            <label for="tipo-lista" class="form-label fw-bold">Seleccione Lista:</label>
+                            <label for="cliente-id" class="form-label fw-bold">Cliente (Opcional):</label>
+                            <select id="cliente-id" name="cliente_id" class="form-select form-select-sm">
+                                <option value="">--- Cliente General (Mostrador) ---</option>
+                                {% for cliente in clientes %}
+                                    <option value="{{ cliente.pk }}" data-tipo="{{ cliente.tipo_cliente }}">
+                                        {{ cliente.name }} ({{ cliente.dni }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">
+                                Deja en blanco para venta sin cliente específico
+                                | <a href="{% url 'customers:customer_create' %}" target="_blank">+ Crear nuevo cliente</a>
+                            </small>
+                        </div>
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-12">
+                        <div class="form-group mb-3">
+                            <label for="tipo-lista" class="form-label fw-bold">Tipo de Lista de Precios:</label>
                             <select id="tipo-lista" name="tipo_lista" class="form-select form-select-lg">
                                 <option value="minorista" selected>🔵 Minorista (Público General)</option>
                                 <option value="mayorista">🟢 Mayorista (Revendedores)</option>
@@ -203,9 +220,32 @@
     }
 
     $(function() {
+        // Select2 para productos
         $('#product-id').select2({
             placeholder: "Por favor, Seleccione su Producto",
             width: '100%'
+        });
+
+        // NUEVO: Select2 para clientes
+        $('#cliente-id').select2({
+            placeholder: "--- Cliente General (Mostrador) ---",
+            width: '100%',
+            allowClear: true
+        });
+
+        // NUEVO: Cuando selecciona un cliente, auto-aplicar su tipo de lista
+        $('#cliente-id').change(function() {
+            var selectedOption = $(this).find('option:selected');
+            var tipoCliente = selectedOption.data('tipo');
+            
+            if (tipoCliente) {
+                $('#tipo-lista').val(tipoCliente);
+                
+                // Actualizar precios si hay productos en el carrito
+                if ($('#POS-field table tbody tr').length > 0) {
+                    actualizarPreciosEnTabla();
+                }
+            }
         });
 
         // NUEVO: Listener para cambio de tipo de lista

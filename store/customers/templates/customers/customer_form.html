@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block pageContent %}
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card py-2">
+        <div class="d-flex justify-content-between align-items-center">
+            <h4 class="card-title mb-0">{{ title }}</h4>
+            <a href="{% url 'customers:customer_list' %}" class="btn btn-secondary btn-sm">
+                <i class="mdi mdi-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card">
+        <div class="card-body">
+            <form method="post" novalidate>
+                {% csrf_token %}
+                
+                <!-- Información Básica -->
+                <fieldset class="border p-3 mb-3">
+                    <legend class="w-auto px-2 h5">Información Básica</legend>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.name.id_for_label }}" class="form-label">
+                                {{ form.name.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.name }}
+                            {% if form.name.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.name.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.dni.id_for_label }}" class="form-label">
+                                {{ form.dni.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.dni }}
+                            <small class="form-text text-muted">{{ form.dni.help_text }}</small>
+                            {% if form.dni.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.dni.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="{{ form.tipo_cliente.id_for_label }}" class="form-label">
+                                {{ form.tipo_cliente.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.tipo_cliente }}
+                            <small class="form-text text-muted">{{ form.tipo_cliente.help_text }}</small>
+                            {% if form.tipo_cliente.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.tipo_cliente.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </fieldset>
+                
+                <!-- Información de Contacto -->
+                <fieldset class="border p-3 mb-3">
+                    <legend class="w-auto px-2 h5">Información de Contacto</legend>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.phone.id_for_label }}" class="form-label">
+                                {{ form.phone.label }}
+                            </label>
+                            {{ form.phone }}
+                            {% if form.phone.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.phone.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.email.id_for_label }}" class="form-label">
+                                {{ form.email.label }}
+                            </label>
+                            {{ form.email }}
+                            {% if form.email.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.email.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="{{ form.address.id_for_label }}" class="form-label">
+                                {{ form.address.label }}
+                            </label>
+                            {{ form.address }}
+                            {% if form.address.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.address.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </fieldset>
+                
+                <!-- Estado y Notas -->
+                <fieldset class="border p-3 mb-3">
+                    <legend class="w-auto px-2 h5">Estado y Notas</legend>
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <div class="form-check">
+                                {{ form.activo }}
+                                <label class="form-check-label" for="{{ form.activo.id_for_label }}">
+                                    {{ form.activo.label }}
+                                </label>
+                                <small class="form-text text-muted d-block">
+                                    {{ form.activo.help_text }}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="{{ form.notas.id_for_label }}" class="form-label">
+                                {{ form.notas.label }}
+                            </label>
+                            {{ form.notas }}
+                            {% if form.notas.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.notas.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </fieldset>
+                
+                <!-- Botones -->
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'customers:customer_list' %}" class="btn btn-secondary">
+                        <i class="mdi mdi-cancel"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="mdi mdi-content-save"></i> {{ button_text }}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock pageContent %}
+
+{% block ScriptBlock %}
+<script>
+    $(document).ready(function() {
+        // Validación de DNI en tiempo real
+        $('#id_dni').on('input', function() {
+            var dni = $(this).val().replace(/\s/g, '').replace(/-/g, '');
+            $(this).val(dni);
+        });
+    });
+</script>
+{% endblock ScriptBlock %}

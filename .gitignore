@@ -38,3 +38,17 @@ db.sqlite3-journal
 
 # Carpeta new
 new/
+*.bk0
+*.bk1
+*.bk.py
+*.bk.html
+*_BACKUP.*
+*_NEW.*
+DECISION_COMPRAS_MULTIPRODUCTO.txt
+claude.bk1.md
+claude.bk8.md
+*.bk*
+*_BACKUP.*
+*_NEW.*
+claude.*.md
+DECISION_*.txt

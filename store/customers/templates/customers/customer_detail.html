@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block pageContent %}
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card py-2">
+        <div class="d-flex justify-content-between align-items-center">
+            <h4 class="card-title mb-0">Detalle del Cliente</h4>
+            <div>
+                <a href="{% url 'customers:customer_list' %}" class="btn btn-secondary btn-sm">
+                    <i class="mdi mdi-arrow-left"></i> Volver
+                </a>
+                <a href="{% url 'customers:customer_update' cliente.pk %}" class="btn btn-warning btn-sm">
+                    <i class="mdi mdi-pencil"></i> Editar
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Información del Cliente -->
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-8">
+    <div class="mdc-card">
+        <div class="card-body">
+            <h5 class="card-title">Información Personal</h5>
+            <table class="table table-borderless">
+                <tr>
+                    <th width="30%">Nombre:</th>
+                    <td>{{ cliente.name }}</td>
+                </tr>
+                <tr>
+                    <th>DNI/CUIT:</th>
+                    <td>{{ cliente.dni }}</td>
+                </tr>
+                <tr>
+                    <th>Teléfono:</th>
+                    <td>{{ cliente.phone|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <th>Email:</th>
+                    <td>{{ cliente.email|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <th>Dirección:</th>
+                    <td>{{ cliente.address|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <th>Tipo de Cliente:</th>
+                    <td>
+                        <span class="badge bg-{{ cliente.get_tipo_cliente_display_badge }}">
+                            {{ cliente.get_tipo_cliente_display }}
+                        </span>
+                    </td>
+                </tr>
+                <tr>
+                    <th>Estado:</th>
+                    <td>
+                        {% if cliente.activo %}
+                            <span class="badge bg-success">Activo</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Inactivo</span>
+                        {% endif %}
+                        <a href="{% url 'customers:customer_toggle_activo' cliente.pk %}" 
+                           class="btn btn-sm btn-outline-secondary ms-2">
+                            {% if cliente.activo %}
+                                <i class="mdi mdi-close-circle"></i> Desactivar
+                            {% else %}
+                                <i class="mdi mdi-check-circle"></i> Activar
+                            {% endif %}
+                        </a>
+                    </td>
+                </tr>
+                <tr>
+                    <th>Fecha de Registro:</th>
+                    <td>{{ cliente.date_added|date:"d/m/Y H:i" }}</td>
+                </tr>
+            </table>
+            
+            {% if cliente.notas %}
+            <div class="mt-3">
+                <h6>Notas:</h6>
+                <p class="text-muted">{{ cliente.notas }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas -->
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-4">
+    <div class="mdc-card">
+        <div class="card-body">
+            <h5 class="card-title">Estadísticas</h5>
+            <div class="mb-3">
+                <h6 class="text-muted">Total Facturado</h6>
+                <h3 class="text-primary">AR$ {{ total_facturado|floatformat:2 }}</h3>
+            </div>
+            <div class="mb-3">
+                <h6 class="text-muted">Cantidad de Ventas</h6>
+                <h3 class="text-info">{{ total_ventas }}</h3>
+            </div>
+            {% if cliente.get_ultima_venta %}
+            <div class="mb-3">
+                <h6 class="text-muted">Última Venta</h6>
+                <p>{{ cliente.get_ultima_venta|date:"d/m/Y H:i" }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Productos Más Comprados -->
+{% if productos_top %}
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card">
+        <div class="card-body">
+            <h5 class="card-title">Productos Más Comprados</h5>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Cantidad Total</th>
+                            <th>Veces Comprado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in productos_top %}
+                        <tr>
+                            <td>{{ item.product__name }}</td>
+                            <td>{{ item.cantidad_total }}</td>
+                            <td>{{ item.veces_comprado }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Historial de Ventas -->
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card">
+        <div class="card-body">
+            <h5 class="card-title">Historial de Ventas (Últimas 10)</h5>
+            {% if ventas %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Total</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for venta in ventas %}
+                        <tr>
+                            <td>{{ venta.date_added|date:"d/m/Y H:i" }}</td>
+                            <td>AR$ {{ venta.grand_total|floatformat:2 }}</td>
+                            <td>
+                                <span class="badge bg-success">Completada</span>
+                            </td>
+                            <td>
+                                <a href="{% url 'pos:receipt-modal' %}?id={{ venta.pk }}" 
+                                   class="btn btn-sm btn-info" 
+                                   target="_blank" 
+                                   title="Ver recibo">
+                                    <i class="mdi mdi-receipt"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted">Este cliente aún no tiene ventas registradas.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock pageContent %}
