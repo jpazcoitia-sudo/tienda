@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block pageContent %}
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card py-2">
+        <div class="d-flex justify-content-between align-items-center px-3">
+            <h4 class="card-title mb-0">📝 Tomar Nuevo Pedido</h4>
+            <a href="{% url 'pedidos:pedido_list' %}" class="btn btn-secondary btn-sm">
+                <i class="mdi mdi-arrow-left"></i> Volver a Pedidos
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card">
+        <form action="" id="pedido-form">
+            {% csrf_token %}
+            
+            <!-- Información del Cliente -->
+            <fieldset class="mb-3 p-3 border">
+                <legend>Información del Cliente</legend>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="cliente-id" class="form-label fw-bold">Cliente: *</label>
+                            <select id="cliente-id" name="cliente_id" class="form-select" required>
+                                <option value="">--- Seleccione un Cliente ---</option>
+                                {% for cliente in clientes %}
+                                    <option value="{{ cliente.pk }}" data-tipo="{{ cliente.tipo_cliente }}">
+                                        {{ cliente.name }} ({{ cliente.dni }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">
+                                <a href="{% url 'customers:customer_create' %}" target="_blank">+ Crear nuevo cliente</a>
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="form-group mb-3">
+                            <label for="tipo-lista" class="form-label fw-bold">Lista de Precios:</label>
+                            <select id="tipo-lista" name="tipo_lista" class="form-select">
+                                <option value="minorista">🔵 Minorista</option>
+                                <option value="mayorista">🟢 Mayorista</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="form-group mb-3">
+                            <label for="fecha-entrega" class="form-label fw-bold">Entrega Estimada:</label>
+                            <input type="date" id="fecha-entrega" name="fecha_entrega_estimada" class="form-control">
+                        </div>
+                    </div>
+                </div>
+            </fieldset>
+            
+            <!-- Agregar Productos -->
+            <fieldset class="p-3 border">
+                <legend>Productos del Pedido</legend>
+                <div class="row align-items-end">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="product-id">Seleccione Producto</label>
+                            <select id="product-id" class="form-select">
+                                <option value="" disabled selected></option>
+                                {% for product in products %}
+                                    <option value="{{ product.pk }}">{{ product }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group mb-3">
+                            <label for="product-qty">Cantidad</label>
+                            <input type="number" class="form-control text-center" step="any" id="product-qty" value="1" min="0.01">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group mb-3">
+                            <button class="btn btn-primary btn-sm w-100" type="button" id="add_item">
+                                <i class="mdi mdi-plus"></i> Añadir al Pedido
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </fieldset>
+            
+            <!-- Tabla de Items -->
+            <fieldset class="mt-3">
+                <div class="d-flex w-100" id="PEDIDO-field">
+                    <div class="col-8 bg-light border">
+                        <table class="table table-bordered mb-0">
+                            <thead>
+                                <tr class="bg-dark text-light">
+                                    <th class="py-2 px-2 text-center" width="5%"></th>
+                                    <th class="py-2 px-2 text-center" width="15%">Cantidad</th>
+                                    <th class="py-2 px-2 text-center" width="50%">Producto</th>
+                                    <th class="py-2 px-2 text-center" width="15%">Precio</th>
+                                    <th class="py-2 px-2 text-center" width="15%">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-3">
+                                        No hay productos agregados al pedido
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-4 bg-dark border">
+                        <div class="p-3">
+                            <dl class="mb-0">
+                                <dt class="h5 fw-bold text-light">Total del Pedido</dt>
+                                <dd class="text-end py-2 px-3 rounded bg-light mb-0">
+                                    <input type="hidden" name="total" value="0">
+                                    <span class="h3 fw-bold text-dark" id="total">AR$ 0.00</span>
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </fieldset>
+            
+            <!-- Notas -->
+            <fieldset class="mt-3 p-3 border">
+                <legend>Notas del Pedido (Opcional)</legend>
+                <textarea name="notas" id="notas" rows="3" class="form-control" 
+                          placeholder="Observaciones, detalles especiales, etc."></textarea>
+            </fieldset>
+            
+            <!-- Botones -->
+            <div class="row mt-3">
+                <div class="col-12 text-end">
+                    <button class="btn btn-success" type="button" id="guardar_pedido">
+                        <i class="mdi mdi-content-save"></i> Guardar Pedido
+                    </button>
+                    <a href="{% url 'pedidos:pedido_list' %}" class="btn btn-secondary">
+                        Cancelar
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Template para items -->
+<noscript id="item-clone">
+    <tr>
+        <td class="px-2 py-1 text-center">
+            <button class="btn btn-sm btn-danger rounded rem-item" type="button">
+                <i class="mdi mdi-close"></i>
+            </button>
+        </td>
+        <td class="px-2 py-1">
+            <input type="hidden" name="product[]">
+            <input type="hidden" name="price[]">
+            <input type="number" name="qty[]" min="0.01" step="any" class="form-control form-control-sm text-center">
+        </td>
+        <td class="px-2 py-1 product_name text-start"></td>
+        <td class="px-2 py-1 product_price text-end"></td>
+        <td class="px-2 py-1 product_total text-end"></td>
+    </tr>
+</noscript>
+{% endblock pageContent %}
+
+{% block ScriptBlock %}
+<script>
+    var product_json = '{{ product_json }}';
+    if (product_json == "" || product_json == "{}") {
+        product_json = {};
+    } else {
+        product_json = product_json.replaceAll('&quot;', '"');
+        product_json = $.parseJSON(product_json);
+    }
+
+    var prod_arr = {};
+    if (Object.keys(product_json).length > 0) {
+        Object.keys(product_json).map(k => {
+            prod_arr[product_json[k].id] = product_json[k];
+        });
+    }
+
+    function getPrecioActual(product_data) {
+        var tipo_lista = $('#tipo-lista').val();
+        return tipo_lista === 'mayorista' ? product_data.precio_mayorista : product_data.precio_minorista;
+    }
+
+    function calc() {
+        var total = 0;
+        $('#PEDIDO-field table tbody tr').each(function() {
+            if($(this).find('[name="product[]"]').length > 0) {
+                var price = parseFloat($(this).find('[name="price[]"]').val());
+                var qty = parseFloat($(this).find('[name="qty[]"]').val()) || 0;
+                var item_total = price * qty;
+                $(this).find('.product_total').text('AR$ ' + item_total.toLocaleString('es-AR', {minimumFractionDigits: 2}));
+                total += item_total;
+            }
+        });
+        $('#total').text('AR$ ' + total.toLocaleString('es-AR', {minimumFractionDigits: 2}));
+        $('[name="total"]').val(total);
+    }
+
+    function actualizarPreciosEnTabla() {
+        $('#PEDIDO-field table tbody tr').each(function() {
+            var product_id = $(this).find('[name="product[]"]').val();
+            if (product_id && !!prod_arr[product_id]) {
+                var data = prod_arr[product_id];
+                var nuevo_precio = getPrecioActual(data);
+                var qty = parseFloat($(this).find('[name="qty[]"]').val()) || 0;
+                
+                $(this).find('[name="price[]"]').val(nuevo_precio);
+                $(this).find('.product_price').text('AR$ ' + nuevo_precio.toLocaleString('es-AR', {minimumFractionDigits: 2}));
+            }
+        });
+        calc();
+    }
+
+    $(function() {
+        $('#product-id').select2({
+            placeholder: "Seleccione un Producto",
+            width: '100%'
+        });
+
+        $('#cliente-id').select2({
+            placeholder: "Seleccione un Cliente",
+            width: '100%'
+        });
+
+        // Auto-aplicar lista según tipo de cliente
+        $('#cliente-id').change(function() {
+            var selectedOption = $(this).find('option:selected');
+            var tipoCliente = selectedOption.data('tipo');
+            if (tipoCliente) {
+                $('#tipo-lista').val(tipoCliente);
+                if ($('#PEDIDO-field table tbody tr[class!="empty"]').length > 0) {
+                    actualizarPreciosEnTabla();
+                }
+            }
+        });
+
+        $('#tipo-lista').change(function() {
+            if ($('#PEDIDO-field table tbody tr').find('[name="product[]"]').length > 0) {
+                if (confirm('¿Actualizar precios según nueva lista?')) {
+                    actualizarPreciosEnTabla();
+                }
+            }
+        });
+
+        $('#add_item').click(function() {
+            var id = $('#product-id').val();
+            var qty = parseFloat($('#product-qty').val());
+            
+            if (!id || !qty || qty <= 0) {
+                alert("Seleccione un producto y cantidad válida");
+                return false;
+            }
+
+            if (!prod_arr[id]) {
+                alert("Producto no encontrado");
+                return false;
+            }
+
+            // Verificar si ya está en la lista
+            if ($('#PEDIDO-field table tbody input[name="product[]"][value="' + id + '"]').length > 0) {
+                alert('El producto ya está en el pedido');
+                return false;
+            }
+
+            var data = prod_arr[id];
+            var precio_actual = getPrecioActual(data);
+            
+            // Eliminar fila vacía si existe
+            $('#PEDIDO-field table tbody tr:contains("No hay productos")').remove();
+            
+            var tr = $($('noscript#item-clone').html()).clone();
+            tr.find('[name="qty[]"]').val(qty);
+            tr.find('[name="product[]"]').val(id);
+            tr.find('[name="price[]"]').val(precio_actual);
+            tr.find('.product_name').text(data.name);
+            tr.find('.product_price').text('AR$ ' + precio_actual.toLocaleString('es-AR', {minimumFractionDigits: 2}));
+            tr.find('.product_total').text('AR$ ' + (precio_actual * qty).toLocaleString('es-AR', {minimumFractionDigits: 2}));
+            
+            $('#PEDIDO-field table tbody').append(tr);
+            $('#product-id').val('').trigger('change');
+            $('#product-qty').val(1);
+            calc();
+
+            tr.find('[name="qty[]"]').on('input', function() {
+                calc();
+            });
+
+            tr.find('.rem-item').click(function() {
+                if (confirm("¿Remover " + data.name + " del pedido?")) {
+                    tr.remove();
+                    calc();
+                    
+                    // Si no quedan items, mostrar mensaje
+                    if ($('#PEDIDO-field table tbody tr').length === 0) {
+                        $('#PEDIDO-field table tbody').html('<tr><td colspan="5" class="text-center text-muted py-3">No hay productos agregados al pedido</td></tr>');
+                    }
+                }
+            });
+        });
+
+        $('#guardar_pedido').click(function() {
+            if ($('#PEDIDO-field table tbody tr').find('[name="product[]"]').length === 0) {
+                alert("Agregue al menos un producto al pedido");
+                return false;
+            }
+
+            if (!$('#cliente-id').val()) {
+                alert("Seleccione un cliente");
+                return false;
+            }
+
+            start_loader();
+            $.ajax({
+                headers: {
+                    "X-CSRFToken": '{{ csrf_token }}'
+                },
+                url: "{% url 'pedidos:save_pedido' %}",
+                data: new FormData($('#pedido-form')[0]),
+                cache: false,
+                contentType: false,
+                processData: false,
+                method: 'POST',
+                dataType: 'json',
+                error: err => {
+                    console.log(err);
+                    alert('Error al guardar el pedido');
+                    end_loader();
+                },
+                success: function(resp) {
+                    if (resp.status == 'success') {
+                        alert('Pedido ' + resp.code + ' creado exitosamente');
+                        window.location.href = "{% url 'pedidos:pedido_list' %}";
+                    } else {
+                        alert(resp.msg || 'Error al crear el pedido');
+                        end_loader();
+                    }
+                }
+            });
+        });
+    });
+</script>
+{% endblock ScriptBlock %}

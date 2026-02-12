@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block pageContent %}
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-8 offset-2">
+    <div class="mdc-card p-4">
+        <h4 class="mb-4 text-danger">❌ Cancelar Pedido</h4>
+        
+        <div class="alert alert-warning">
+            <strong>⚠️ ¿Estás seguro de cancelar este pedido?</strong>
+        </div>
+
+        <table class="table table-borderless mb-4">
+            <tr>
+                <th width="30%">Pedido:</th>
+                <td>{{ pedido.code }}</td>
+            </tr>
+            <tr>
+                <th>Cliente:</th>
+                <td>{{ pedido.cliente.name }}</td>
+            </tr>
+            <tr>
+                <th>Total:</th>
+                <td>AR$ {{ pedido.total|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <th>Estado Actual:</th>
+                <td>
+                    <span class="badge bg-{{ pedido.get_estado_badge_class }}">
+                        {{ pedido.get_estado_display }}
+                    </span>
+                </td>
+            </tr>
+        </table>
+
+        <div class="alert alert-info">
+            <strong>Nota:</strong> El pedido no se eliminará, solo pasará a estado "Cancelado". 
+            Los datos se conservarán para referencia.
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">
+                <i class="mdi mdi-close-circle"></i> Confirmar Cancelación
+            </button>
+            <a href="{% url 'pedidos:pedido_detail' pedido.pk %}" class="btn btn-secondary">
+                Volver
+            </a>
+        </form>
+    </div>
+</div>
+{% endblock pageContent %}

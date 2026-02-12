@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block pageContent %}
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card">
+        <div class="d-flex justify-content-between align-items-center p-3">
+            <h4 class="card-title mb-0">📋 Gestión de Pedidos</h4>
+            <a href="{% url 'pedidos:pedido_create' %}" class="btn btn-primary btn-sm">
+                <i class="mdi mdi-plus"></i> Nuevo Pedido
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas -->
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body text-center">
+                    <h3>{{ stats.total }}</h3>
+                    <p class="mb-0">Total Pedidos</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body text-center">
+                    <h3>{{ stats.pendientes }}</h3>
+                    <p class="mb-0">Pendientes</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h3>{{ stats.preparacion }}</h3>
+                    <p class="mb-0">En Preparación</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h3>{{ stats.listos }}</h3>
+                    <p class="mb-0">Listos</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card p-3">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                {{ form.buscar.label_tag }}
+                {{ form.buscar }}
+            </div>
+            <div class="col-md-2">
+                {{ form.estado.label_tag }}
+                {{ form.estado }}
+            </div>
+            <div class="col-md-3">
+                {{ form.cliente.label_tag }}
+                {{ form.cliente }}
+            </div>
+            <div class="col-md-2">
+                {{ form.fecha_desde.label_tag }}
+                {{ form.fecha_desde }}
+            </div>
+            <div class="col-md-2">
+                {{ form.fecha_hasta.label_tag }}
+                {{ form.fecha_hasta }}
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="mdi mdi-magnify"></i> Buscar
+                </button>
+                <a href="{% url 'pedidos:pedido_list' %}" class="btn btn-secondary btn-sm">
+                    <i class="mdi mdi-refresh"></i> Limpiar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de Pedidos -->
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card">
+        <div class="table-responsive">
+            <table class="table table-hover" id="pedidosTable">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Cliente</th>
+                        <th>Estado</th>
+                        <th>Fecha Pedido</th>
+                        <th>Entrega Estimada</th>
+                        <th>Total</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pedido in pedidos %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'pedidos:pedido_detail' pedido.pk %}">
+                                {{ pedido.code }}
+                            </a>
+                        </td>
+                        <td>{{ pedido.cliente.name }}</td>
+                        <td>
+                            <span class="badge bg-{{ pedido.get_estado_badge_class }}">
+                                {{ pedido.get_estado_display }}
+                            </span>
+                        </td>
+                        <td>{{ pedido.fecha_pedido|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            {% if pedido.fecha_entrega_estimada %}
+                                {{ pedido.fecha_entrega_estimada|date:"d/m/Y" }}
+                            {% else %}
+                                <span class="text-muted">No especificada</span>
+                            {% endif %}
+                        </td>
+                        <td>AR$ {{ pedido.total|floatformat:2 }}</td>
+                        <td>
+                            <a href="{% url 'pedidos:pedido_detail' pedido.pk %}" 
+                               class="btn btn-sm btn-info" title="Ver Detalle">
+                                <i class="mdi mdi-eye"></i>
+                            </a>
+                            
+                            {% if pedido.puede_convertirse_a_venta %}
+                            <a href="{% url 'pedidos:convertir_venta' pedido.pk %}" 
+                               class="btn btn-sm btn-success" title="Convertir a Venta">
+                                <i class="mdi mdi-cash-register"></i>
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">
+                            No se encontraron pedidos.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock pageContent %}
+
+{% block ScriptBlock %}
+<script>
+$(document).ready(function() {
+    $('#pedidosTable').DataTable({
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json"
+        },
+        "order": [[3, "desc"]], // Ordenar por fecha descendente
+        "pageLength": 20
+    });
+});
+</script>
+{% endblock ScriptBlock %}

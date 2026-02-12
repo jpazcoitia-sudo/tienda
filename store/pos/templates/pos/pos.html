@@ -11,6 +11,9 @@
 <div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
     <div class="mdc-card">
         <form action="" id="pos-form">
+            <!-- Campo hidden para pedido_id si viene de conversión -->
+            <input type="hidden" name="pedido_id" id="pedido-id" value="">
+            
             <!-- NUEVO: Selector de Cliente y Tipo de Lista -->
             <fieldset class="mb-3">
                 <legend>Información del Cliente</legend>
@@ -167,6 +170,19 @@
         });
     }
 
+    // NUEVO: Cargar datos de pedido si existen
+    var pedido_data = '{{ pedido_data|safe }}';
+    if (pedido_data && pedido_data != 'None' && pedido_data != '') {
+        try {
+            pedido_data = $.parseJSON(pedido_data);
+            console.log('Cargando pedido:', pedido_data);
+        } catch(e) {
+            pedido_data = null;
+        }
+    } else {
+        pedido_data = null;
+    }
+    
     // NUEVO: Función para obtener el precio según lista seleccionada
     function getPrecioActual(product_data) {
         var tipo_lista = $('#tipo-lista').val();
@@ -219,6 +235,50 @@
         calc();
     }
 
+    // NUEVO: Función para cargar datos del pedido en el POS
+    function cargarPedido(pedido) {
+        if (!pedido) return;
+        
+        // Establecer pedido_id
+        $('#pedido-id').val(pedido.pedido_id);
+        
+        // Seleccionar cliente
+        $('#cliente-id').val(pedido.cliente_id).trigger('change');
+        
+        // Seleccionar tipo de lista
+        $('#tipo-lista').val(pedido.tipo_lista);
+        
+        // Agregar items
+        pedido.items.forEach(function(item) {
+            if (!!prod_arr[item.product_id]) {
+                var data = prod_arr[item.product_id];
+                
+                var tr = $($('noscript#item-clone').html()).clone();
+                tr.find('[name="qty[]"]').val(item.cantidad);
+                tr.find('[name="product[]"]').val(item.product_id);
+                tr.find('[name="price[]"]').val(item.precio);
+                tr.find('.product_name').text(data.name);
+                tr.find('.product_price').text(parseFloat(item.precio).toLocaleString('en-US'));
+                tr.find('.product_total').text(parseFloat(item.precio * item.cantidad).toLocaleString('en-US'));
+                
+                $('#POS-field table tbody').append(tr);
+                
+                tr.find('[name="qty[]"]').on('input keypress keyup keydown', function() {
+                    calc();
+                });
+                
+                tr.find('.rem-item').click(function() {
+                    if (confirm("¿Remover " + data.name + " de la Lista?")) {
+                        tr.remove();
+                        calc();
+                    }
+                });
+            }
+        });
+        
+        calc();
+    }
+    
     $(function() {
         // Select2 para productos
         $('#product-id').select2({
@@ -358,6 +418,11 @@
                 }
             });
         });
+
+        // NUEVO: Cargar pedido si existe
+        if (pedido_data) {
+            cargarPedido(pedido_data);
+        }
     });
 </script>
 {% endblock ScriptBlock %}

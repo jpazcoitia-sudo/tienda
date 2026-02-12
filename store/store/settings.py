@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'purchase',
     'report',
     'customers',
+    'pedidos',
     # install in 3rd party
     # openpyxl
     # xmtl2pdf

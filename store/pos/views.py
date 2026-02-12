@@ -3,7 +3,7 @@ from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.decorators import login_required
 from .models import *
 from inventory.models import *
-from customers.models import Cliente  # NUEVO: Importar modelo Cliente
+from customers.models import Cliente
 from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime
 import json
@@ -23,23 +23,25 @@ def pos(request):
     products = Products.objects.filter(status=1).order_by('name')
     product_json = []
     for product in products:
-        # CAMBIO: Agregar ambos precios para que el frontend pueda elegir
         product_json.append({
             'id': product.id, 
             'name': product.name, 
             'precio_mayorista': float(product.precio_mayorista),
             'precio_minorista': float(product.precio_minorista),
-            'price': float(product.precio_minorista)  # Por defecto minorista
+            'price': float(product.precio_minorista)
         })
     
-    # NUEVO: Obtener lista de clientes activos
     clientes = Cliente.objects.filter(activo=True).order_by('name')
+    
+    # NUEVO: Verificar si hay datos de pedido a cargar desde sesión
+    pedido_data = request.session.pop('pedido_a_facturar', None)
     
     context = {
         'page_title': "Point of Sale",
         'products': products,
         'product_json': json.dumps(product_json),
-        'clientes': clientes,  # NUEVO: Pasar clientes al template
+        'clientes': clientes,
+        'pedido_data': json.dumps(pedido_data) if pedido_data else None,
     }
     return render(request, 'pos/pos.html', context)
 
@@ -71,7 +73,6 @@ def save_pos(request):
     code = str(pref) + str(code)
 
     try:
-        # NUEVO: Obtener cliente seleccionado (si existe)
         cliente_id = data.get('cliente_id', None)
         cliente = None
         if cliente_id and cliente_id != '':
@@ -80,8 +81,10 @@ def save_pos(request):
             except Cliente.DoesNotExist:
                 cliente = None
         
-        # CAMBIO: Guardar tipo de lista de precios
         tipo_lista = data.get('tipo_lista', 'minorista')
+        
+        # NUEVO: Obtener pedido_id si viene de conversión
+        pedido_id = data.get('pedido_id', None)
         
         sales = Sales(
             code=code,
@@ -91,8 +94,8 @@ def save_pos(request):
             grand_total=data['grand_total'],
             tendered_amount=data['tendered_amount'],
             amount_change=data['amount_change'],
-            cliente=cliente,  # NUEVO: Asignar cliente
-            tipo_lista=tipo_lista  # Guardar tipo de lista
+            cliente=cliente,
+            tipo_lista=tipo_lista
         )
         
         sales.save()
@@ -102,22 +105,34 @@ def save_pos(request):
         for prod_id in data.getlist('product[]'):
             product = get_object_or_404(Products, id=prod_id)
             qty = data.getlist('qty[]')[i]
-            price = data.getlist('price[]')[i]  # El precio ya viene del frontend
+            price = data.getlist('price[]')[i]
             total = float(qty) * float(price)
             sales_item = salesItems(
                 sale=sales,
                 product=product,
                 qty=qty,
-                price=price,  # Se guarda el precio usado en el momento de la venta
+                price=price,
                 total=total
             )
             sales_item.save()
             i += 1
 
+        # NUEVO: Si viene de un pedido, actualizar el pedido
+        if pedido_id:
+            try:
+                from pedidos.models import Pedido
+                pedido = Pedido.objects.get(pk=pedido_id)
+                pedido.venta = sales
+                pedido.estado = 'facturado'
+                pedido.fecha_entrega_real = timezone.now()
+                pedido.save()
+                messages.success(request, f"Pedido {pedido.code} facturado exitosamente.")
+            except:
+                pass  # Si no se encuentra el pedido, continuar normal
+
         resp['status'] = 'success'
         resp['sale'] = sale_id
         
-        # NUEVO: Mensaje personalizado según si hay cliente o no
         if cliente:
             messages.success(request, f"Venta registrada para {cliente.name}.")
         else:
@@ -139,7 +154,6 @@ def salesList(request):
             if field.related_model is None:
                 data[field.name] = getattr(sale, field.name)
         
-        # NUEVO: Agregar nombre del cliente
         data['cliente_nombre'] = sale.get_nombre_cliente()
         
         items = salesItems.objects.filter(sale_id=sale).all()
@@ -167,10 +181,9 @@ def create_sales_item(request, product_id, qty, sale_instance, tipo_lista='minor
     product = get_object_or_404(Products, id=product_id)
     try:
         qty = int(qty)
-        if product.cantidad < qty:
+        if product.quantity < qty:
             return JsonResponse({"error": "No hay suficiente cantidad de producto para vender."}, status=400)
         
-        # CAMBIO: Obtener precio según tipo de lista
         if tipo_lista == 'mayorista':
             precio_venta = product.precio_mayorista
         else:
@@ -179,7 +192,7 @@ def create_sales_item(request, product_id, qty, sale_instance, tipo_lista='minor
         sales_item = salesItems.objects.create(
             product=product,
             qty=qty,
-            price=precio_venta,  # Usar el precio correspondiente
+            price=precio_venta,
             total=precio_venta * qty,
             sale=sale_instance
         )
@@ -197,7 +210,6 @@ def create_sale(request):
         items = json.loads(request.POST.get('items'))
         tipo_lista = request.POST.get('tipo_lista', 'minorista')
         
-        # NUEVO: Obtener cliente si se envió
         cliente_id = request.POST.get('cliente_id', None)
         cliente = None
         if cliente_id and cliente_id != '':
@@ -214,7 +226,7 @@ def create_sale(request):
             tax=0,
             tendered_amount=0,
             amount_change=0,
-            cliente=cliente,  # NUEVO: Asignar cliente
+            cliente=cliente,
             tipo_lista=tipo_lista
         )
 
@@ -246,12 +258,10 @@ def receipt(request):
     if 'tax_amount' in transaction:
         transaction['tax_amount'] = format(float(transaction['tax_amount']))
     
-    # NUEVO: Agregar nombre del cliente al recibo
     transaction['cliente_nombre'] = sales.get_nombre_cliente()
     
     ItemList = salesItems.objects.filter(sale=sales).all()
     
-    # Cambiar el idioma a español para la fecha
     with translation.override('es'):
         formatted_date = DateFormat(sales.date_added).format('d \de F Y')
     context = {

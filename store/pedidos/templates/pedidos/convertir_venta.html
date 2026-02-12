@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block pageContent %}
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card p-4">
+        <h4 class="mb-4">💰 Convertir Pedido a Venta</h4>
+        
+        <div class="alert alert-info">
+            <strong>📋 Pedido:</strong> {{ pedido.code }}<br>
+            <strong>👤 Cliente:</strong> {{ pedido.cliente.name }}<br>
+            <strong>💵 Total:</strong> AR$ {{ pedido.total|floatformat:2 }}
+        </div>
+
+        {% if stock_ok %}
+        <div class="alert alert-success">
+            ✅ <strong>Stock disponible</strong> para todos los productos del pedido.
+        </div>
+        {% else %}
+        <div class="alert alert-danger">
+            ⚠️ <strong>Stock insuficiente</strong> para algunos productos:
+            <ul class="mt-2 mb-0">
+                {% for item in items_sin_stock %}
+                <li>
+                    <strong>{{ item.producto }}</strong>: 
+                    Necesario {{ item.solicitado }}, Disponible {{ item.disponible }}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="mt-4">
+                <h5>Confirma la conversión:</h5>
+                <ul>
+                    <li>Se creará una venta por AR$ {{ pedido.total|floatformat:2 }}</li>
+                    <li>Se descontará el stock de los productos</li>
+                    <li>El pedido pasará a estado "Entregado"</li>
+                </ul>
+            </div>
+
+            <div class="mt-4">
+                {% if stock_ok %}
+                <button type="submit" class="btn btn-success">
+                    <i class="mdi mdi-check"></i> Confirmar y Crear Venta
+                </button>
+                {% else %}
+                <button type="submit" class="btn btn-success" disabled>
+                    <i class="mdi mdi-alert"></i> No se puede convertir (stock insuficiente)
+                </button>
+                {% endif %}
+                
+                <a href="{% url 'pedidos:pedido_detail' pedido.pk %}" class="btn btn-secondary">
+                    Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock pageContent %}

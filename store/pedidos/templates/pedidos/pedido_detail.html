@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block pageContent %}
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card py-2">
+        <div class="d-flex justify-content-between align-items-center px-3">
+            <h4 class="card-title mb-0">
+                📋 Pedido {{ pedido.code }}
+                <span class="badge bg-{{ pedido.get_estado_badge_class }} ms-2">
+                    {{ pedido.get_estado_display }}
+                </span>
+            </h4>
+            <a href="{% url 'pedidos:pedido_list' %}" class="btn btn-secondary btn-sm">
+                <i class="mdi mdi-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Información del Pedido -->
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-8">
+    <div class="mdc-card p-3">
+        <h5 class="mb-3">Información del Pedido</h5>
+        <table class="table table-borderless">
+            <tr>
+                <th width="30%">Código:</th>
+                <td>{{ pedido.code }}</td>
+            </tr>
+            <tr>
+                <th>Cliente:</th>
+                <td>
+                    <a href="{% url 'customers:customer_detail' pedido.cliente.pk %}">
+                        {{ pedido.cliente.name }}
+                    </a>
+                    ({{ pedido.cliente.dni }})
+                </td>
+            </tr>
+            <tr>
+                <th>Tipo de Cliente:</th>
+                <td>
+                    <span class="badge bg-{% if pedido.cliente.tipo_cliente == 'mayorista' %}success{% else %}primary{% endif %}">
+                        {{ pedido.cliente.get_tipo_cliente_display }}
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <th>Lista de Precios:</th>
+                <td>{{ pedido.get_tipo_lista_display }}</td>
+            </tr>
+            <tr>
+                <th>Fecha Pedido:</th>
+                <td>{{ pedido.fecha_pedido|date:"d/m/Y H:i" }}</td>
+            </tr>
+            <tr>
+                <th>Entrega Estimada:</th>
+                <td>
+                    {% if pedido.fecha_entrega_estimada %}
+                        {{ pedido.fecha_entrega_estimada|date:"d/m/Y" }}
+                    {% else %}
+                        <span class="text-muted">No especificada</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% if pedido.fecha_entrega_real %}
+            <tr>
+                <th>Entrega Real:</th>
+                <td>{{ pedido.fecha_entrega_real|date:"d/m/Y H:i" }}</td>
+            </tr>
+            {% endif %}
+            <tr>
+                <th>Estado:</th>
+                <td>
+                    <span class="badge bg-{{ pedido.get_estado_badge_class }}">
+                        {{ pedido.get_estado_display }}
+                    </span>
+                </td>
+            </tr>
+            {% if pedido.venta %}
+            <tr>
+                <th>Venta Asociada:</th>
+                <td>
+                    <a href="{% url 'pos:receipt-modal' %}?id={{ pedido.venta.pk }}" target="_blank">
+                        {{ pedido.venta.code }}
+                    </a>
+                </td>
+            </tr>
+            {% endif %}
+        </table>
+
+        {% if pedido.notas %}
+        <div class="mt-3">
+            <h6>Notas:</h6>
+            <div class="alert alert-info">
+                {{ pedido.notas|linebreaksbr }}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Acciones Rápidas -->
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-4">
+    <div class="mdc-card p-3">
+        <h5 class="mb-3">Acciones</h5>
+        
+        {% if pedido.puede_convertirse_a_venta %}
+        <a href="{% url 'pedidos:convertir_venta' pedido.pk %}" class="btn btn-success w-100 mb-2">
+            <i class="mdi mdi-cash-register"></i> Convertir a Venta
+        </a>
+        {% endif %}
+        
+        {% if pedido.estado != 'entregado' and pedido.estado != 'cancelado' %}
+        <a href="{% url 'pedidos:cambiar_estado' pedido.pk %}" class="btn btn-info w-100 mb-2">
+            <i class="mdi mdi-swap-horizontal"></i> Cambiar Estado
+        </a>
+        {% endif %}
+        
+        {% if pedido.puede_cancelarse %}
+        <a href="{% url 'pedidos:pedido_delete' pedido.pk %}" class="btn btn-danger w-100">
+            <i class="mdi mdi-close-circle"></i> Cancelar Pedido
+        </a>
+        {% endif %}
+        
+        {% if not stock_ok %}
+        <div class="alert alert-warning mt-3">
+            <strong>⚠️ Stock Insuficiente</strong><br>
+            No hay stock para completar este pedido.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Items del Pedido -->
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card p-3">
+        <h5 class="mb-3">Productos del Pedido</h5>
+        <div class="table-responsive">
+            <table class="table table-bordered">
+                <thead class="bg-light">
+                    <tr>
+                        <th>Producto</th>
+                        <th class="text-center">Cantidad</th>
+                        <th class="text-end">Precio Unit.</th>
+                        <th class="text-end">Total</th>
+                        <th class="text-center">Stock Actual</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in pedido.items.all %}
+                    <tr>
+                        <td>{{ item.product.name }}</td>
+                        <td class="text-center">{{ item.cantidad|floatformat:2 }}</td>
+                        <td class="text-end">AR$ {{ item.precio_unitario|floatformat:2 }}</td>
+                        <td class="text-end">AR$ {{ item.total|floatformat:2 }}</td>
+                        <td class="text-center">
+                            {% if item.product.cantidad >= item.cantidad %}
+                                <span class="badge bg-success">
+                                    {{ item.product.cantidad|floatformat:2 }}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-danger">
+                                    {{ item.product.cantidad|floatformat:2 }} ⚠️
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="bg-light">
+                    <tr>
+                        <th colspan="3" class="text-end">TOTAL:</th>
+                        <th class="text-end">AR$ {{ pedido.total|floatformat:2 }}</th>
+                        <th></th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% if items_sin_stock %}
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="alert alert-danger">
+        <h5>⚠️ Productos sin Stock Suficiente:</h5>
+        <ul>
+            {% for item in items_sin_stock %}
+            <li>
+                <strong>{{ item.producto }}</strong>: 
+                Solicitado {{ item.solicitado }}, Disponible {{ item.disponible }}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}
+
+{% endblock pageContent %}

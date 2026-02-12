@@ -1,0 +1,126 @@
+# ACTUALIZACIÓN POS - CARGA AUTOMÁTICA DE PEDIDOS
+
+## CAMBIOS NECESARIOS EN pos.html
+
+### 1. Agregar campo hidden para pedido_id (línea 14, después de `<form>`):
+
+```html
+<form action="" id="pos-form">
+    <!-- Campo hidden para pedido_id si viene de conversión -->
+    <input type="hidden" name="pedido_id" id="pedido-id" value="">
+    
+    <!-- NUEVO: Selector de Cliente y Tipo de Lista -->
+```
+
+### 2. Agregar al inicio del script (después de línea 168, después de `prod_arr`):
+
+```javascript
+    // NUEVO: Cargar datos de pedido si existen
+    var pedido_data = '{{ pedido_data|safe }}';
+    if (pedido_data && pedido_data != 'None' && pedido_data != '') {
+        try {
+            pedido_data = $.parseJSON(pedido_data);
+            console.log('Cargando pedido:', pedido_data);
+        } catch(e) {
+            pedido_data = null;
+        }
+    } else {
+        pedido_data = null;
+    }
+```
+
+### 3. Agregar función para cargar pedido (después de línea 220, después de `actualizarPreciosEnTabla`):
+
+```javascript
+    // NUEVO: Función para cargar datos del pedido en el POS
+    function cargarPedido(pedido) {
+        if (!pedido) return;
+        
+        // Establecer pedido_id
+        $('#pedido-id').val(pedido.pedido_id);
+        
+        // Seleccionar cliente
+        $('#cliente-id').val(pedido.cliente_id).trigger('change');
+        
+        // Seleccionar tipo de lista
+        $('#tipo-lista').val(pedido.tipo_lista);
+        
+        // Agregar items
+        pedido.items.forEach(function(item) {
+            if (!!prod_arr[item.product_id]) {
+                var data = prod_arr[item.product_id];
+                
+                var tr = $($('noscript#item-clone').html()).clone();
+                tr.find('[name="qty[]"]').val(item.cantidad);
+                tr.find('[name="product[]"]').val(item.product_id);
+                tr.find('[name="price[]"]').val(item.precio);
+                tr.find('.product_name').text(data.name);
+                tr.find('.product_price').text(parseFloat(item.precio).toLocaleString('en-US'));
+                tr.find('.product_total').text(parseFloat(item.precio * item.cantidad).toLocaleString('en-US'));
+                
+                $('#POS-field table tbody').append(tr);
+                
+                tr.find('[name="qty[]"]').on('input keypress keyup keydown', function() {
+                    calc();
+                });
+                
+                tr.find('.rem-item').click(function() {
+                    if (confirm("¿Remover " + data.name + " de la Lista?")) {
+                        tr.remove();
+                        calc();
+                    }
+                });
+            }
+        });
+        
+        calc();
+    }
+```
+
+### 4. Llamar a cargarPedido() al final de $(function() { ... }) (línea 361, ANTES del último });):
+
+```javascript
+        // NUEVO: Cargar pedido si existe
+        if (pedido_data) {
+            cargarPedido(pedido_data);
+        }
+    });  // Cierre de $(function()
+```
+
+---
+
+## ARCHIVOS A REEMPLAZAR:
+
+1. **pos/views.py** → Reemplazar con `pos_views_FASE2_NEW.py`
+2. **pos/models.py** → Ya está actualizado (Fase 1B)
+3. **pos/templates/pos/pos.html** → Aplicar cambios manuales arriba
+
+---
+
+## FLUJO COMPLETO:
+
+1. Usuario entra a Pedidos
+2. Ve pedido pendiente
+3. Click en "Convertir a Venta"
+4. Se redirige al POS con datos precargados:
+   - Cliente seleccionado
+   - Tipo de lista
+   - Productos con cantidades
+5. Usuario revisa y click en "Procesar"
+6. Venta se crea
+7. Pedido pasa a "Facturado"
+8. Stock se descuenta
+
+---
+
+## VENTAJAS:
+
+✅ Usuario puede revisar antes de procesar
+✅ Usuario puede modificar cantidades si es necesario
+✅ Usuario puede agregar/quitar productos
+✅ Flujo natural del POS
+✅ Stock se descuenta correctamente
+
+---
+
+**¡Listo para probar!** 🚀

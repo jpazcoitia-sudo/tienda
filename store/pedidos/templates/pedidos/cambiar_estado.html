@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block pageContent %}
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-8 offset-2">
+    <div class="mdc-card p-4">
+        <h4 class="mb-4">🔄 Cambiar Estado del Pedido</h4>
+        
+        <div class="alert alert-info">
+            <strong>Pedido:</strong> {{ pedido.code }}<br>
+            <strong>Cliente:</strong> {{ pedido.cliente.name }}<br>
+            <strong>Estado Actual:</strong> 
+            <span class="badge bg-{{ pedido.get_estado_badge_class }}">
+                {{ pedido.get_estado_display }}
+            </span>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+                {{ form.nuevo_estado.label_tag }}
+                {{ form.nuevo_estado }}
+            </div>
+
+            <div class="mb-3">
+                {{ form.notas.label_tag }}
+                {{ form.notas }}
+                <small class="text-muted">Las notas se agregarán al historial del pedido.</small>
+            </div>
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="mdi mdi-check"></i> Guardar Cambio
+                </button>
+                <a href="{% url 'pedidos:pedido_detail' pedido.pk %}" class="btn btn-secondary">
+                    Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock pageContent %}
