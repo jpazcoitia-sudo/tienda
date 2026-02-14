@@ -6,7 +6,7 @@ from typing import Dict, Optional, Union
 from pyhanko.config.errors import ConfigurationError
 from pyhanko.pdf_utils.misc import get_and_apply
 
-__all__ = ['StdLogOutput', 'LogConfig', 'parse_logging_config']
+__all__ = ['LogConfig', 'StdLogOutput', 'parse_logging_config']
 
 
 class StdLogOutput(enum.Enum):
@@ -76,7 +76,10 @@ def parse_logging_config(log_config_spec) -> Dict[Optional[str], LogConfig]:
     )
 
     log_config: Dict[Optional[str], LogConfig] = {
-        None: LogConfig(root_logger_level, root_logger_output)
+        None: LogConfig(root_logger_level, root_logger_output),
+        # these modules are quite noisy, so we tone them down a notch by default
+        'signxml.processor': LogConfig(logging.WARNING, root_logger_output),
+        'fontTools.subset': LogConfig(logging.WARNING, root_logger_output),
     }
 
     logging_by_module = log_config_spec.get('by-module', {})

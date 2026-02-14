@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block pageContent %}
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+  <div class="mdc-card py-2">
+    <div class="d-flex justify-content-between align-items-center px-3">
+      <h4 class="card-title mb-0">💳 Gestión de Pagos de Compras</h4>
+    </div>
+  </div>
+</div>
+
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+  <div class="mdc-card p-3">
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Proveedor</th>
+            <th>Comprobante</th>
+            <th class="text-end">Total</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for purchase in purchases %}
+          <tr>
+            <td>{{ purchase.date_added|date:"d/m/Y" }}</td>
+            <td>{{ purchase.supplier.name }}</td>
+            <td>{{ purchase.numero_comprobante|default:"-" }}</td>
+            <td class="text-end">AR$ {{ purchase.total|floatformat:2 }}</td>
+            <td>
+              <span class="badge bg-{{ purchase.get_estado_pago_badge_class }}">
+                {{ purchase.get_estado_pago }}
+              </span>
+            </td>
+            <td>
+              {% if not purchase.pagado %}
+              <button class="btn btn-sm btn-success" onclick="pagarCompra({{ purchase.pk }})">
+                💵 Pagar
+              </button>
+              {% else %}
+              <span class="text-muted">Pagado</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="pagarModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5>Pagar Compra</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formPagar" method="post">
+        {% csrf_token %}
+        <div class="modal-body">
+          <label>Forma de Pago:</label>
+          <select name="forma_pago" class="form-select" required>
+            <option value="efectivo">💵 Efectivo</option>
+            <option value="banco">🏦 Banco</option>
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success">Confirmar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block ScriptBlock %}
+<script>
+function pagarCompra(pk) {
+  $('#formPagar').attr('action', '/purchase/pagar/' + pk + '/');
+  $('#pagarModal').modal('show');
+}
+</script>
+{% endblock %}

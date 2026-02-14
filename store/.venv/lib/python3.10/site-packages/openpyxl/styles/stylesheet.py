@@ -102,7 +102,7 @@ class Stylesheet(Serialisable):
         attrs = dict(node.attrib)
         for k in attrs:
             del node.attrib[k]
-        return super(Stylesheet, cls).from_tree(node)
+        return super().from_tree(node)
 
 
     def _merge_named_styles(self):
@@ -111,13 +111,9 @@ class Stylesheet(Serialisable):
         "cellStyleXfs"
         """
         style_refs = self.cellStyles.remove_duplicates()
-        named_styles = NamedStyleList()
+        from_ref = [self._expand_named_style(style_ref) for style_ref in style_refs]
 
-        for style_ref in style_refs:
-            style = self._expand_named_style(style_ref)
-            named_styles.append(style)
-
-        return named_styles
+        return NamedStyleList(from_ref)
 
 
     def _expand_named_style(self, style_ref):
@@ -195,7 +191,7 @@ class Stylesheet(Serialisable):
 
 
     def to_tree(self, tagname=None, idx=None, namespace=None):
-        tree = super(Stylesheet, self).to_tree(tagname, idx, namespace)
+        tree = super().to_tree(tagname, idx, namespace)
         tree.set("xmlns", SHEET_MAIN_NS)
         return tree
 

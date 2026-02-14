@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block pageContent %}
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card py-2">
+        <div class="d-flex justify-content-between align-items-center px-3">
+            <h4 class="card-title mb-0">💰 Caja y Banco</h4>
+            <div>
+                <a href="{% url 'finances:cierre_caja' %}" class="btn btn-warning btn-sm">
+                    <i class="mdi mdi-clipboard-check"></i> Cierre de Caja
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Saldos Actuales -->
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">💵 Efectivo en Caja</h6>
+                            <h2 class="mt-2 mb-0">AR$ {{ caja.saldo_efectivo|floatformat:2 }}</h2>
+                        </div>
+                        <div>
+                            <i class="mdi mdi-cash" style="font-size: 3rem; opacity: 0.5;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">🏦 Saldo en Banco</h6>
+                            <h2 class="mt-2 mb-0">AR$ {{ caja.saldo_banco|floatformat:2 }}</h2>
+                        </div>
+                        <div>
+                            <i class="mdi mdi-bank" style="font-size: 3rem; opacity: 0.5;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">💰 Total Disponible</h6>
+                            <h2 class="mt-2 mb-0">AR$ {{ caja.total_disponible|floatformat:2 }}</h2>
+                        </div>
+                        <div>
+                            <i class="mdi mdi-wallet" style="font-size: 3rem; opacity: 0.5;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Acciones Rápidas -->
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card p-3">
+        <h5 class="mb-3">Acciones Rápidas</h5>
+        <div class="row">
+            <div class="col-md-3">
+                <a href="{% url 'finances:transferir' %}" class="btn btn-outline-primary w-100 mb-2">
+                    <i class="mdi mdi-swap-horizontal"></i> Transferir
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="{% url 'finances:retiro' %}" class="btn btn-outline-warning w-100 mb-2">
+                    <i class="mdi mdi-cash-minus"></i> Retiro
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="{% url 'finances:gasto' %}" class="btn btn-outline-danger w-100 mb-2">
+                    <i class="mdi mdi-receipt"></i> Gasto
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="{% url 'finances:historial' %}" class="btn btn-outline-info w-100 mb-2">
+                    <i class="mdi mdi-history"></i> Historial
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resumen del Día -->
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card p-3">
+        <h5 class="mb-3">📊 Resumen de Hoy</h5>
+        
+        <div class="row">
+            <!-- Efectivo -->
+            <div class="col-md-6">
+                <h6 class="text-success">💵 Movimientos en Efectivo</h6>
+                <table class="table table-sm">
+                    <tr>
+                        <td>Ventas:</td>
+                        <td class="text-end text-success">+AR$ {{ ventas_efectivo_hoy|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Compras Pagadas:</td>
+                        <td class="text-end text-danger">-AR$ {{ compras_efectivo_hoy|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Retiros:</td>
+                        <td class="text-end text-danger">-AR$ {{ retiros_efectivo_hoy|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Gastos:</td>
+                        <td class="text-end text-danger">-AR$ {{ gastos_efectivo_hoy|floatformat:2 }}</td>
+                    </tr>
+                    <tr class="fw-bold">
+                        <td>Balance del Día:</td>
+                        <td class="text-end {% if balance_efectivo_hoy >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {% if balance_efectivo_hoy >= 0 %}+{% endif %}AR$ {{ balance_efectivo_hoy|floatformat:2 }}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            
+            <!-- Banco -->
+            <div class="col-md-6">
+                <h6 class="text-info">🏦 Movimientos en Banco</h6>
+                <table class="table table-sm">
+                    <tr>
+                        <td>Ventas:</td>
+                        <td class="text-end text-success">+AR$ {{ ventas_banco_hoy|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Compras Pagadas:</td>
+                        <td class="text-end text-danger">-AR$ {{ compras_banco_hoy|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Retiros:</td>
+                        <td class="text-end text-danger">-AR$ {{ retiros_banco_hoy|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td>Gastos:</td>
+                        <td class="text-end text-danger">-AR$ {{ gastos_banco_hoy|floatformat:2 }}</td>
+                    </tr>
+                    <tr class="fw-bold">
+                        <td>Balance del Día:</td>
+                        <td class="text-end {% if balance_banco_hoy >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {% if balance_banco_hoy >= 0 %}+{% endif %}AR$ {{ balance_banco_hoy|floatformat:2 }}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        {% if cierre_hoy %}
+        <div class="alert alert-info mt-3">
+            ✅ El cierre de caja de hoy ya fue realizado.
+            <a href="{% url 'finances:detalle_cierre' cierre_hoy.pk %}">Ver Cierre</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Últimos Movimientos -->
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card p-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">📋 Últimos Movimientos</h5>
+            <a href="{% url 'finances:historial' %}" class="btn btn-sm btn-outline-primary">
+                Ver Todos
+            </a>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Tipo</th>
+                        <th>Concepto</th>
+                        <th class="text-end">Monto</th>
+                        <th>Cuenta</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mov in ultimos_movimientos %}
+                    <tr>
+                        <td>{{ mov.fecha|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            <span class="badge bg-secondary">
+                                {{ mov.get_tipo_display }}
+                            </span>
+                        </td>
+                        <td>{{ mov.concepto|truncatewords:10 }}</td>
+                        <td class="text-end {% if mov.es_ingreso %}text-success{% else %}text-danger{% endif %}">
+                            {% if mov.es_ingreso %}+{% else %}-{% endif %}AR$ {{ mov.monto|floatformat:2 }}
+                        </td>
+                        <td>
+                            {% if mov.afecta_efectivo %}💵{% endif %}
+                            {% if mov.afecta_banco %}🏦{% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">
+                            No hay movimientos registrados aún.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock pageContent %}

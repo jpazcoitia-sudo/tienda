@@ -12,4 +12,6 @@ urlpatterns = [
     path('purchase/new/', PurchaseCreate.as_view(), name='purchase_create'),
     path('purchase/edit/<int:pk>/', PurchaseUpdate.as_view(), name='purchase_update'),
     path('purchase/delete/<int:pk>/', PurchaseDelete.as_view(), name='purchase_delete'),
+    path('pagos/', purchase_payment_list, name='payment_list'),
+    path('pagar/<int:pk>/', marcar_compra_pagada, name='marcar_pagada'),
 ]

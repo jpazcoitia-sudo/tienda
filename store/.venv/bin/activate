@@ -38,7 +38,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV=/Users/juanpabloazcoitia/Library/CloudStorage/OneDrive-Personal/python/mysite/tienda/store/.venv
+VIRTUAL_ENV=/Users/juanpablo/Library/CloudStorage/OneDrive-Personal/python/mysite/tienda/store/.venv
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

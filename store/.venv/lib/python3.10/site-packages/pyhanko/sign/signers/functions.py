@@ -7,7 +7,6 @@ from typing import Optional
 
 import tzlocal
 from asn1crypto import cms
-
 from pyhanko.pdf_utils import embed
 from pyhanko.pdf_utils.writer import BasePdfFileWriter
 from pyhanko.sign.fields import SigFieldSpec
@@ -17,7 +16,7 @@ from pyhanko.sign.timestamps import TimeStamper
 from .pdf_cms import Signer
 from .pdf_signer import PdfSignatureMetadata, PdfSigner
 
-__all__ = ['sign_pdf', 'async_sign_pdf', 'embed_payload_with_cms']
+__all__ = ['async_sign_pdf', 'embed_payload_with_cms', 'sign_pdf']
 
 
 def sign_pdf(
@@ -32,7 +31,8 @@ def sign_pdf(
     output=None,
 ):
     """
-    Thin convenience wrapper around :meth:`.PdfSigner.sign_pdf`.
+    Thin convenience wrapper around
+    :meth:`~pyhanko.sign.signers.pdf_signer.PdfSigner.sign_pdf`.
 
     :param pdf_out:
         An :class:`.IncrementalPdfFileWriter`.
@@ -42,7 +42,8 @@ def sign_pdf(
     :param signature_meta:
         The specification of the signature to add.
     :param signer:
-        :class:`.Signer` object to use to produce the signature object.
+        :class:`~pyhanko.sign.signers.pdf_cms.Signer`
+        object to use to produce the signature object.
     :param timestamper:
         :class:`.TimeStamper` object to use to produce any time stamp tokens
         that might be required.
@@ -53,7 +54,8 @@ def sign_pdf(
         If ``True``, never create a new empty signature field to contain
         the signature.
         If ``False``, a new field may be created if no field matching
-        :attr:`~.PdfSignatureMetadata.field_name` exists.
+        :attr:`~pyhanko.sign.signers.pdf_signer.PdfSignatureMetadata.field_name`
+        exists.
     :param new_field_spec:
         If a new field is to be created, this parameter allows the caller
         to specify the field's properties in the form of a
@@ -100,7 +102,8 @@ async def async_sign_pdf(
     output=None,
 ):
     """
-    Thin convenience wrapper around :meth:`.PdfSigner.async_sign_pdf`.
+    Thin convenience wrapper around
+    :meth:`~pyhanko.sign.signers.pdf_signer.PdfSigner.async_sign_pdf`.
 
     :param pdf_out:
         An :class:`.IncrementalPdfFileWriter`.
@@ -110,7 +113,8 @@ async def async_sign_pdf(
     :param signature_meta:
         The specification of the signature to add.
     :param signer:
-        :class:`.Signer` object to use to produce the signature object.
+        :class:`~pyhanko.sign.signers.pdf_cms.Signer`
+        object to use to produce the signature object.
     :param timestamper:
         :class:`.TimeStamper` object to use to produce any time stamp tokens
         that might be required.
@@ -121,7 +125,8 @@ async def async_sign_pdf(
         If ``True``, never create a new empty signature field to contain
         the signature.
         If ``False``, a new field may be created if no field matching
-        :attr:`~.PdfSignatureMetadata.field_name` exists.
+        :attr:`~pyhanko.sign.signers.pdf_signer.PdfSignatureMetadata.field_name`
+        exists.
     :param new_field_spec:
         If a new field is to be created, this parameter allows the caller
         to specify the field's properties in the form of a

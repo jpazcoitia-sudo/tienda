@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block pageContent %}
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card p-4">
+        <h4 class="mb-3">Cierre de Caja - {{ cierre.fecha|date:"d/m/Y" }}</h4>
+        <table class="table">
+            <tr><th>Saldo Esperado:</th><td class="text-end">AR$ {{ cierre.saldo_esperado_efectivo|floatformat:2|intcomma }}</td></tr>
+            <tr><th>Saldo Real:</th><td class="text-end">AR$ {{ cierre.saldo_real_efectivo|floatformat:2|intcomma }}</td></tr>
+            <tr class="{% if cierre.diferencia_efectivo == 0 %}table-success{% elif cierre.diferencia_efectivo > 0 %}table-warning{% else %}table-danger{% endif %}">
+                <th>Diferencia:</th>
+                <td class="text-end">AR$ {{ cierre.diferencia_efectivo|floatformat:2|intcomma }}</td>
+            </tr>
+        </table>
+        <a href="{% url 'finances:dashboard' %}" class="btn btn-secondary">Volver</a>
+    </div>
+</div>
+{% endblock %}

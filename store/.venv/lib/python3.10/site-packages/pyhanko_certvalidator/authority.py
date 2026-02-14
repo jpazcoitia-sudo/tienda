@@ -1,5 +1,7 @@
 import abc
+import enum
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Optional
 
 from asn1crypto import keys, x509
@@ -7,7 +9,38 @@ from asn1crypto import keys, x509
 from .name_trees import process_general_subtrees
 from .policy_decl import PKIXValidationParams
 
-# TODO add support for roots that are limited in time?
+
+class TrustedServiceType(enum.Enum):
+    UNSPECIFIED = 0
+    """
+    Unspecified.
+
+    If a trust manager designates a trust anchor with this
+    service type, it will be considered trusted for any purpose.
+    """
+
+    UNSUPPORTED = 1
+    """
+    Unsupported.
+
+    If a trust manager designates a trust anchor with this
+    service type, it will not be considered trusted for any
+    purpose other than identifying itself.
+    """
+
+    CERTIFICATE_AUTHORITY = 2
+    """
+    Certificate authority (CA).
+
+    Only trust anchors with this designation can appear
+    in a PKIX validation path as the issuer of
+    another certificate.
+    """
+
+    TIME_STAMPING_AUTHORITY = 3
+    """
+    Time stamping authority (TSA).
+    """
 
 
 @dataclass(frozen=True)
@@ -34,6 +67,21 @@ class TrustQualifiers:
     """
     Maximal allowed path length for this trust root for the purposes of
     AAControls. If ``None``, any path length will be accepted.
+    """
+
+    valid_from: Optional[datetime] = None
+    """
+    Lower bound of the trust anchor's validity period, if any.
+    """
+
+    valid_until: Optional[datetime] = None
+    """
+    Upper bound of the trust anchor's validity period, if any.
+    """
+
+    trusted_service_type: TrustedServiceType = TrustedServiceType.UNSPECIFIED
+    """
+    Indicates the service provided by the trust root.
     """
 
 
@@ -170,7 +218,11 @@ def derive_quals_from_cert(cert: x509.Certificate) -> TrustQualifiers:
         ext_found = True
         policies_val: x509.CertificatePolicies = cert.certificate_policies_value
         acceptable_policies = frozenset(
-            [pol_info['policy_identifier'].dotted for pol_info in policies_val]
+            [
+                pol_info['policy_identifier'].dotted
+                for pol_info in policies_val
+                if pol_info['policy_identifier'].native != 'any_policy'
+            ]
         )
 
     params = None
@@ -187,7 +239,15 @@ def derive_quals_from_cert(cert: x509.Certificate) -> TrustQualifiers:
         )
 
     return TrustQualifiers(
-        max_path_length=cert.max_path_length, standard_parameters=params
+        max_path_length=cert.max_path_length,
+        standard_parameters=params,
+        valid_from=cert.not_valid_before,
+        valid_until=cert.not_valid_after,
+        trusted_service_type=(
+            TrustedServiceType.CERTIFICATE_AUTHORITY
+            if cert.ca
+            else TrustedServiceType.UNSUPPORTED
+        ),
     )
 
 

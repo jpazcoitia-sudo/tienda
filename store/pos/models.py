@@ -24,6 +24,15 @@ class Sales(models.Model):
     tax = models.FloatField(default=0)
     tendered_amount = models.FloatField(default=0)
     amount_change = models.FloatField(default=0)
+    forma_pago = models.CharField(
+        max_length=20,
+        choices=[
+            ('efectivo', 'Efectivo'),
+            ('banco', 'Banco/Transferencia')
+        ],
+        default='efectivo',
+        verbose_name='Forma de Pago'
+    )
     date_added = models.DateTimeField(default=timezone.now)
     date_updated = models.DateTimeField(auto_now=True)
 

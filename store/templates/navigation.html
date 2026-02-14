@@ -22,11 +22,7 @@
                         <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon" aria-hidden="true">assignment</i> Pedidos
                     </a>
                 </div>
-                <div class="mdc-list-item mdc-drawer-item">
-                    <a class="mdc-drawer-link" href="{% url 'customers:customer_list' %}">
-                        <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon" aria-hidden="true">people</i> Clientes
-                    </a>
-                </div>
+                
                 <div class="mdc-list-item mdc-drawer-item">
                     <a class="mdc-drawer-link" href="{% url 'pos:pos-page' %}">
                         <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon" aria-hidden="true">store</i> POS
@@ -67,7 +63,18 @@
                         <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon" aria-hidden="true">shopping_cart</i> Compra de Productos
                     </a>
                 </div>
-
+                <div class="mdc-list-item mdc-drawer-item">
+                    <a class="mdc-drawer-link" href="{% url 'purchase:payment_list' %}">
+                        <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon">payment</i> Pagar Compras
+                    </a>
+                </div>
+                <hr class="separator" style="margin: 5px 0;">
+                
+                <div class="mdc-list-item mdc-drawer-item">
+                    <a class="mdc-drawer-link" href="{% url 'finances:dashboard' %}">
+                        <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon" aria-hidden="true">account_balance_wallet</i> Caja y Banco
+                    </a>
+                </div>
                 <hr class="separator" style="margin: 5px 0;">
                 
                 <div class="mdc-list-item mdc-drawer-item">

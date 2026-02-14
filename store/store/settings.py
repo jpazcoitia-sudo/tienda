@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'report',
     'customers',
     'pedidos',
+    'finances',
     # install in 3rd party
     # openpyxl
     # xmtl2pdf
@@ -130,7 +131,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'es'
 
-TIME_ZONE = 'America/La_Paz'
+TIME_ZONE = 'America/Argentina/Buenos_Aires'
 
 USE_I18N = True
 

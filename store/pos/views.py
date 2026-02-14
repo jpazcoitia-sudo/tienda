@@ -82,7 +82,7 @@ def save_pos(request):
                 cliente = None
         
         tipo_lista = data.get('tipo_lista', 'minorista')
-        
+        forma_pago = data.get('forma_pago', 'efectivo')
         # NUEVO: Obtener pedido_id si viene de conversión
         pedido_id = data.get('pedido_id', None)
         
@@ -95,10 +95,18 @@ def save_pos(request):
             tendered_amount=data['tendered_amount'],
             amount_change=data['amount_change'],
             cliente=cliente,
-            tipo_lista=tipo_lista
+            tipo_lista=tipo_lista,
+            forma_pago=forma_pago
         )
         
         sales.save()
+
+        from finances.models import MovimientoCaja
+        MovimientoCaja.crear_desde_venta(
+            venta=sales,
+            forma_pago=forma_pago,
+            usuario=request.user
+        )
 
         sale_id = sales.pk
         i = 0

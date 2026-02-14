@@ -103,7 +103,7 @@ class ProfitReportView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                     'qty_vendida': item.qty,
                     'qty_comprada': 0,
                     'cost': cost_per_unit,
-                    'venta_total': Decimal(item.qty) * Decimal(item.product.price),  # Venta total por producto
+                    'venta_total': Decimal(item.qty) * Decimal(item.price),  # Venta total por producto
                     'costo_total': sale_cost,
                     'ganancia': sale_profit,
                 })
