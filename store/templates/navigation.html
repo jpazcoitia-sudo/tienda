@@ -45,7 +45,11 @@
                         <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon" aria-hidden="true">label</i> Lista de Productos 
                     </a>
                 </div>
-    
+                <div class="mdc-list-item mdc-drawer-item">
+                    <a class="mdc-drawer-link" href="{% url 'inventory:edicion_rapida_precios' %}">
+                        <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon" aria-hidden="true">edit</i> Actualizar Precios
+                    </a>
+                </div>
                 <hr class="separator" style="margin: 5px 0;">
                 <!-- NUEVO: Enlace a Clientes -->
                 <div class="mdc-list-item mdc-drawer-item">
@@ -95,6 +99,11 @@
                 <div class="mdc-list-item mdc-drawer-item">
                     <a class="mdc-drawer-link" href="{% url 'report:profit_report' %}" >
                         <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon" aria-hidden="true">attach_money</i> Reporte de Ganancias
+                    </a>
+                </div>
+                <div class="mdc-list-item mdc-drawer-item">
+                    <a class="mdc-drawer-link" href="{% url 'report:lista_precios' %}">
+                        <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon" aria-hidden="true">receipt</i> Lista de Precios
                     </a>
                 </div>
             </nav>

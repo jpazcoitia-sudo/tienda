@@ -1,0 +1,410 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block pageContent %}
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card py-2">
+        <div class="d-flex justify-content-between align-items-center px-3">
+            <h4 class="card-title mb-0">💰 Actualización Rápida de Precios</h4>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card p-3">
+        <div class="row align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">🔍 Buscar Producto:</label>
+                <input type="text" id="buscar-producto" class="form-control" placeholder="Nombre del producto...">
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Filtrar por Proveedor:</label>
+                <select id="filtro-proveedor" class="form-select">
+                    <option value="">Todos los proveedores</option>
+                    {% for proveedor in proveedores %}
+                    <option value="{{ proveedor.name }}">{{ proveedor.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Ordenar por:</label>
+                <select id="ordenar" class="form-select">
+                    <option value="name-asc">Nombre A-Z</option>
+                    <option value="name-desc">Nombre Z-A</option>
+                    <option value="cost-asc">Costo menor</option>
+                    <option value="cost-desc">Costo mayor</option>
+                    <option value="stock-asc">Stock menor</option>
+                    <option value="stock-desc">Stock mayor</option>
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <button class="btn btn-primary w-100" onclick="aplicarFiltros()">
+                    Aplicar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de productos -->
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card p-3">
+        <div class="d-flex justify-content-between mb-3">
+            <div>
+                <span id="contador-productos" class="badge bg-info">0 productos</span>
+                <span id="contador-modificados" class="badge bg-warning d-none">0 modificados</span>
+            </div>
+            <div>
+                <button class="btn btn-success" id="btn-actualizar-masivo" onclick="abrirModalMasivo()">
+                    🔄 Actualizar Masivamente
+                </button>
+                <button class="btn btn-primary" id="btn-guardar" onclick="guardarCambios()" disabled>
+                    💾 Guardar Cambios
+                </button>
+            </div>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-hover table-sm" id="tabla-productos">
+                <thead class="table-dark">
+                    <tr>
+                        <th style="width: 25%">PRODUCTO</th>
+                        <th style="width: 12%">COSTO</th>
+                        <th style="width: 10%">% MINOR.</th>
+                        <th style="width: 10%">% MAYOR.</th>
+                        <th style="width: 12%">P. MINOR.</th>
+                        <th style="width: 12%">P. MAYOR.</th>
+                        <th style="width: 8%">STOCK</th>
+                        <th style="width: 11%">CATEGORÍA</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-productos">
+                    <!-- Se llena con JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Actualización Masiva -->
+<div class="modal fade" id="modalMasivo" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">🔄 Actualización Masiva por Proveedor</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Proveedor:</label>
+                    <select id="modal-proveedor" class="form-select">
+                        <option value="">Seleccionar proveedor...</option>
+                        {% for proveedor in proveedores %}
+                        <option value="{{ proveedor.id }}">{{ proveedor.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <hr>
+                
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="check-aumentar">
+                        <label class="form-check-label" for="check-aumentar">
+                            Aumentar costos:
+                        </label>
+                    </div>
+                    <input type="number" id="input-aumentar" class="form-control mt-2" placeholder="%" step="0.01" disabled>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="check-disminuir">
+                        <label class="form-check-label" for="check-disminuir">
+                            Disminuir costos:
+                        </label>
+                    </div>
+                    <input type="number" id="input-disminuir" class="form-control mt-2" placeholder="%" step="0.01" disabled>
+                </div>
+                
+                <hr>
+                
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="check-recalc-minor">
+                        <label class="form-check-label" for="check-recalc-minor">
+                            Recalcular % Minorista:
+                        </label>
+                    </div>
+                    <input type="number" id="input-minor" class="form-control mt-2" placeholder="%" step="0.01" disabled>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="check-recalc-mayor">
+                        <label class="form-check-label" for="check-recalc-mayor">
+                            Recalcular % Mayorista:
+                        </label>
+                    </div>
+                    <input type="number" id="input-mayor" class="form-control mt-2" placeholder="%" step="0.01" disabled>
+                </div>
+                
+                <div class="alert alert-info" id="alert-afectados" style="display:none;">
+                    Afectará <strong id="cantidad-afectados">0</strong> productos
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="aplicarMasivo()">✓ Aplicar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block ScriptBlock %}
+<script>
+// Variables globales
+let productos = {{ productos_json|safe }};
+let productosFiltrados = [...productos];
+let productosModificados = new Set();
+
+// Inicializar
+$(document).ready(function() {
+    renderizarTabla();
+    
+    // Habilitar/deshabilitar inputs en modal
+    $('#check-aumentar').change(function() {
+        $('#input-aumentar').prop('disabled', !this.checked);
+    });
+    $('#check-disminuir').change(function() {
+        $('#input-disminuir').prop('disabled', !this.checked);
+    });
+    $('#check-recalc-minor').change(function() {
+        $('#input-minor').prop('disabled', !this.checked);
+    });
+    $('#check-recalc-mayor').change(function() {
+        $('#input-mayor').prop('disabled', !this.checked);
+    });
+});
+
+function renderizarTabla() {
+    const tbody = $('#tbody-productos');
+    tbody.empty();
+    
+    productosFiltrados.forEach(producto => {
+        const modificado = productosModificados.has(producto.id);
+        const rowClass = modificado ? 'table-warning' : '';
+        
+        const row = `
+            <tr class="${rowClass}" data-id="${producto.id}">
+                <td>
+                    <strong>${producto.name}</strong><br>
+                    <small class="text-muted">*Último: ${producto.ultimo_proveedor}</small>
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm editable" 
+                           data-field="cost" data-id="${producto.id}" 
+                           value="${producto.cost}" step="0.01" min="0">
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm editable" 
+                           data-field="porc_minorista" data-id="${producto.id}" 
+                           value="${producto.porc_minorista}" step="0.01" min="0">
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm editable" 
+                           data-field="porc_mayorista" data-id="${producto.id}" 
+                           value="${producto.porc_mayorista}" step="0.01" min="0">
+                </td>
+                <td class="precio-minor-${producto.id}">
+                    $ ${formatMoney(producto.precio_minorista)}
+                </td>
+                <td class="precio-mayor-${producto.id}">
+                    $ ${formatMoney(producto.precio_mayorista)}
+                </td>
+                <td>${producto.quantity}</td>
+                <td>${producto.category}</td>
+            </tr>
+        `;
+        
+        tbody.append(row);
+    });
+    
+    // Event listeners para inputs
+    $('.editable').on('input', function() {
+        const id = parseInt($(this).data('id'));
+        const field = $(this).data('field');
+        const value = parseFloat($(this).val()) || 0;
+        
+        // Actualizar datos
+        const producto = productos.find(p => p.id === id);
+        producto[field] = value;
+        
+        // Recalcular precios
+        recalcularPrecios(producto);
+        
+        // Marcar como modificado
+        productosModificados.add(id);
+        $(this).closest('tr').addClass('table-warning');
+        
+        actualizarContadores();
+    });
+    
+    actualizarContadores();
+}
+
+function recalcularPrecios(producto) {
+    producto.precio_minorista = producto.cost * (1 + producto.porc_minorista / 100);
+    producto.precio_mayorista = producto.cost * (1 + producto.porc_mayorista / 100);
+    
+    $(`.precio-minor-${producto.id}`).text('$ ' + formatMoney(producto.precio_minorista));
+    $(`.precio-mayor-${producto.id}`).text('$ ' + formatMoney(producto.precio_mayorista));
+}
+
+function aplicarFiltros() {
+    const busqueda = $('#buscar-producto').val().toLowerCase();
+    const proveedor = $('#filtro-proveedor').val();
+    const orden = $('#ordenar').val();
+    
+    // Filtrar
+    productosFiltrados = productos.filter(p => {
+        const matchBusqueda = p.name.toLowerCase().includes(busqueda);
+        const matchProveedor = !proveedor || p.ultimo_proveedor === proveedor;
+        return matchBusqueda && matchProveedor;
+    });
+    
+    // Ordenar
+    productosFiltrados.sort((a, b) => {
+        switch(orden) {
+            case 'name-asc': return a.name.localeCompare(b.name);
+            case 'name-desc': return b.name.localeCompare(a.name);
+            case 'cost-asc': return a.cost - b.cost;
+            case 'cost-desc': return b.cost - a.cost;
+            case 'stock-asc': return a.quantity - b.quantity;
+            case 'stock-desc': return b.quantity - a.quantity;
+            default: return 0;
+        }
+    });
+    
+    renderizarTabla();
+}
+
+function actualizarContadores() {
+    $('#contador-productos').text(`${productosFiltrados.length} productos`);
+    
+    if (productosModificados.size > 0) {
+        $('#contador-modificados').removeClass('d-none').text(`${productosModificados.size} modificados`);
+        $('#btn-guardar').prop('disabled', false);
+    } else {
+        $('#contador-modificados').addClass('d-none');
+        $('#btn-guardar').prop('disabled', true);
+    }
+}
+
+function guardarCambios() {
+    if (productosModificados.size === 0) return;
+    
+    const cambios = Array.from(productosModificados).map(id => {
+        const producto = productos.find(p => p.id === id);
+        // Enviar los valores actuales (que pueden haber sido modificados)
+        return {
+            id: producto.id,
+            name: producto.name,
+            cost: parseFloat($(`input[data-id="${id}"][data-field="cost"]`).val()),
+            porc_minorista: parseFloat($(`input[data-id="${id}"][data-field="porc_minorista"]`).val()),
+            porc_mayorista: parseFloat($(`input[data-id="${id}"][data-field="porc_mayorista"]`).val())
+        };
+    });
+    
+    start_loader();
+    
+    $.ajax({
+        url: '{% url "inventory:guardar_cambios_precios" %}',
+        method: 'POST',
+        data: JSON.stringify({ cambios }),
+        contentType: 'application/json',
+        success: function(response) {
+            end_loader();
+            if (response.success) {
+                alert(`✅ Se actualizaron ${response.actualizados} productos correctamente`);
+                productosModificados.clear();
+                renderizarTabla();
+                location.reload();
+            } else {
+                alert('❌ Error: ' + response.error);
+            }
+        },
+        error: function() {
+            end_loader();
+            alert('❌ Error de conexión');
+        }
+    });
+}
+
+function abrirModalMasivo() {
+    $('#modalMasivo').modal('show');
+}
+
+function aplicarMasivo() {
+    const proveedorId = $('#modal-proveedor').val();
+    
+    if (!proveedorId) {
+        alert('Selecciona un proveedor');
+        return;
+    }
+    
+    const data = {
+        proveedor_id: proveedorId
+    };
+    
+    if ($('#check-aumentar').is(':checked')) {
+        data.accion = 'aumentar_costo';
+        data.porcentaje = parseFloat($('#input-aumentar').val());
+    } else if ($('#check-disminuir').is(':checked')) {
+        data.accion = 'disminuir_costo';
+        data.porcentaje = parseFloat($('#input-disminuir').val());
+    }
+    
+    if ($('#check-recalc-minor').is(':checked')) {
+        data.porc_minorista = parseFloat($('#input-minor').val());
+    }
+    
+    if ($('#check-recalc-mayor').is(':checked')) {
+        data.porc_mayorista = parseFloat($('#input-mayor').val());
+    }
+    
+    start_loader();
+    
+    $.ajax({
+        url: '{% url "inventory:actualizacion_masiva_proveedor" %}',
+        method: 'POST',
+        data: JSON.stringify(data),
+        contentType: 'application/json',
+        success: function(response) {
+            end_loader();
+            if (response.success) {
+                alert(`✅ ${response.mensaje}`);
+                $('#modalMasivo').modal('hide');
+                location.reload();
+            } else {
+                alert('❌ Error: ' + response.error);
+            }
+        },
+        error: function() {
+            end_loader();
+            alert('❌ Error de conexión');
+        }
+    });
+}
+
+function formatMoney(value) {
+    return parseFloat(value).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block pageContent %}
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card py-2">
+        <div class="d-flex justify-content-between align-items-center px-3">
+            <h4 class="card-title mb-0">📋 Generar Lista de Precios</h4>
+        </div>
+    </div>
+</div>
+
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card p-4">
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="row">
+                <!-- Tipo de Lista -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold">{{ form.tipo_lista.label }}</label>
+                    {{ form.tipo_lista }}
+                </div>
+                
+                <!-- Filtro de Stock -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold">{{ form.stock.label }}</label>
+                    {{ form.stock }}
+                </div>
+            </div>
+            
+            <hr class="my-4">
+            
+            <h5 class="mb-3">Información de Contacto</h5>
+            
+            <div class="row">
+                <!-- Nombre Contacto -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold">{{ form.nombre_contacto.label }}</label>
+                    {{ form.nombre_contacto }}
+                </div>
+                
+                <!-- Teléfono Contacto -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold">{{ form.telefono_contacto.label }}</label>
+                    {{ form.telefono_contacto }}
+                </div>
+            </div>
+            
+            <hr class="my-4">
+            
+            <h5 class="mb-3">Filtrar por Categorías (Opcional)</h5>
+            <p class="text-muted small">Deja todo sin marcar para incluir todas las categorías</p>
+            
+            <div class="row">
+                <div class="col-12">
+                    <div class="categorias-checkbox">
+                        {{ form.categorias }}
+                    </div>
+                </div>
+            </div>
+            
+            <hr class="my-4">
+            
+            <div class="text-end">
+                <a href="{% url 'home-page' %}" class="btn btn-secondary">
+                    <i class="mdi mdi-arrow-left"></i> Cancelar
+                </a>
+                <button type="submit" class="btn btn-success">
+                    <i class="mdi mdi-file-pdf"></i> Generar PDF
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.categorias-checkbox ul {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.categorias-checkbox li {
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #dee2e6;
+}
+
+.categorias-checkbox li:hover {
+    background: #e9ecef;
+}
+
+.categorias-checkbox label {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    margin: 0;
+}
+
+.categorias-checkbox input[type="checkbox"] {
+    margin-right: 8px;
+    cursor: pointer;
+}
+</style>
+{% endblock %}

@@ -77,54 +77,38 @@
         padding: 0.5rem 1rem !important;
     }
     
-    /* MEJORADO: Tabla con scroll horizontal más obvio */
-    #POS-field {
-        position: relative;
+    /* MEJORADO: Layout VERTICAL (tabla arriba, totales abajo) */
+    #POS-field .d-flex {
+        display: flex !important;
+        flex-direction: column !important; /* VERTICAL, no horizontal */
+    }
+    
+    #POS-field .col-8,
+    #POS-field .col-4 {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: none !important;
+        position: static !important;
+    }
+    
+    /* Tabla con scroll horizontal si es necesario */
+    #POS-field .col-8 {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
-        /* Indicador visual de scroll */
-        background: linear-gradient(90deg, white 0%, transparent 10%, transparent 90%, white 100%);
-        background-attachment: local;
-    }
-    
-    #POS-field .d-flex {
-        min-width: 700px; /* Ancho mínimo para forzar scroll */
-        display: flex !important;
-        flex-direction: row !important; /* Mantener lado a lado */
-    }
-    
-    #POS-field .col-8 {
-        width: 55% !important;
-        flex: 0 0 55%;
-    }
-    
-    #POS-field .col-4 {
-        width: 45% !important;
-        flex: 0 0 45%;
-        position: sticky;
-        right: 0;
-        z-index: 1;
     }
     
     /* Tabla responsive */
     #POS-field table {
         font-size: 0.8rem;
         width: 100%;
+        min-width: 500px; /* Mínimo para que no se comprima demasiado */
     }
     
-    /* NO ocultar precio - mantener todas las columnas */
     #POS-field table th,
     #POS-field table td {
         white-space: nowrap;
         padding: 0.4rem !important;
     }
-    
-    /* Ajustar anchos de columnas */
-    #POS-field table colgroup col:nth-child(1) { width: 8%; }
-    #POS-field table colgroup col:nth-child(2) { width: 15%; }
-    #POS-field table colgroup col:nth-child(3) { width: 45%; }
-    #POS-field table colgroup col:nth-child(4) { width: 15%; }
-    #POS-field table colgroup col:nth-child(5) { width: 17%; }
     
     /* Input de cantidad más pequeño */
     #POS-field table input[name="qty[]"] {
@@ -138,11 +122,12 @@
         padding: 0.25rem 0.5rem !important;
     }
     
-    /* Panel de totales con fondo sólido */
+    /* Panel de totales con fondo destacado */
     #POS-field .col-4 {
         background: #2c3e50 !important;
         padding: 1rem !important;
-        box-shadow: -3px 0 10px rgba(0,0,0,0.2);
+        margin-top: 1rem !important;
+        border-radius: 8px;
     }
     
     #POS-field dl {
@@ -164,29 +149,6 @@
     
     #POS-field dl dd input {
         font-size: 1rem !important;
-    }
-    
-    /* Indicador de scroll (opcional) */
-    #POS-field::after {
-        content: '← Deslizar →';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(0,0,0,0.7);
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 5px;
-        font-size: 0.9rem;
-        pointer-events: none;
-        opacity: 0;
-        animation: scrollHint 3s ease-in-out 1s 2;
-        z-index: 999;
-    }
-    
-    @keyframes scrollHint {
-        0%, 100% { opacity: 0; }
-        10%, 90% { opacity: 1; }
     }
     
     /* Botón procesar más grande y fixed en móvil */

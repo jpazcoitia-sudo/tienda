@@ -7,6 +7,7 @@ from .views.views_profit_pdf import *
 from .views.views_profit_excel import *
 from .views.views_miscelanea import *
 from .views.views_mix_excel import *
+from .views.views_lista_precios import lista_precios_form
 app_name = 'report'
 
 urlpatterns = [
@@ -65,4 +66,5 @@ urlpatterns = [
     
     path('mix-day-excel/', MixExcelSalesDayView.as_view(), name='mix_sales_excel'),
     path('mix-section-day-excel/', MixTramoExcelSalesDayView.as_view(), name='mix_sectionsales_excel'),
+    path('lista-precios/', lista_precios_form, name='lista_precios'),
 ]

@@ -18,5 +18,7 @@ urlpatterns = [
     path('products/edit/<int:pk>/', ProductUpdate.as_view(), name='product_update'),
     path('products/delete/<int:pk>/', ProductDelete.as_view(), name='product_delete'),
     path('products/<int:pk>/', views.ProductDetailView.as_view(), name='product_detail'),
-    
+    path('edicion-rapida-precios/', views.edicion_rapida_precios, name='edicion_rapida_precios'),
+    path('guardar-cambios-precios/', views.guardar_cambios_precios, name='guardar_cambios_precios'),
+    path('actualizacion-masiva-proveedor/', views.actualizacion_masiva_proveedor, name='actualizacion_masiva_proveedor'),
 ]
