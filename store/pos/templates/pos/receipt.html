@@ -17,10 +17,12 @@
             font-family: 'Courier New', monospace;
             font-size: 9pt;
             line-height: 1.2;
+            color: #000;
         }
         
         * {
             font-weight: normal !important;
+            color: #000 !important;
         }
         
         .no-print {
@@ -105,11 +107,11 @@
         {% for item in salesItems %}
         <div style="margin: 3px 0; font-size: 9pt;">
             <div style="display: flex; justify-content: space-between;">
-                <div style="width: 8mm;">{{ item.qty|floatformat:0 }}</div>
+                <div style="width: 8mm;">{{ item.qty|floatformat:2 }}</div>
                 <div style="flex: 1; overflow: hidden; text-overflow: ellipsis;">{{ item.product }}</div>
                 <div style="width: 16mm; text-align: right;">${{ item.total|floatformat:0 }}</div>
             </div>
-            <div style="padding-left: 9mm; font-size: 8pt; color: #555;">@ ${{ item.price|floatformat:0 }} c/u</div>
+            <div style="padding-left: 9mm; font-size: 8pt;">@ ${{ item.price|floatformat:0 }} c/u</div>
         </div>
         {% endfor %}
         
@@ -175,10 +177,17 @@
                         font-family: 'Courier New', monospace;
                         font-size: 9pt;
                         line-height: 1.2;
+                        color: #000 !important;
                         background-color: white !important;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
                     }
                     * {
                         font-weight: normal !important;
+                        color: #000 !important;
+                    }
+                    hr, .separator {
+                        border-color: #000 !important;
                     }
                 </style>
             `);

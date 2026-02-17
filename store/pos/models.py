@@ -80,7 +80,7 @@ class salesItems(models.Model):
     product = models.ForeignKey(Products, on_delete=models.CASCADE)
     price = models.FloatField(default=0)  # Precio al momento de la venta
     costo_unitario = models.FloatField(default=0)  # Costo al momento de la venta
-    qty = models.IntegerField(default=0)
+    qty = models.DecimalField(max_digits=10, decimal_places=3, default=0)
     total = models.FloatField(default=0)
 
     def save(self, *args, **kwargs):

@@ -106,7 +106,8 @@ class Products(models.Model):
         return self.name
 
     def update_quantity_on_sale(self, quantity_sold):
-        quantity_sold = int(quantity_sold)
+        from decimal import Decimal
+        quantity_sold = Decimal(str(quantity_sold))
         if self.quantity >= quantity_sold:
             self.quantity -= quantity_sold
             self.save(update_fields=['quantity'])

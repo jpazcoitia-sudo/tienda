@@ -80,7 +80,7 @@
                     <div class="col-lg-3 col-md-5 col-md-12">
                         <div class="form-group mb-3">
                             <label for="product-qty">Cantidad</label>
-                            <input type="number" class="form-control form-control-sm text-center" step="any" id="product-qty" value="1">
+                            <input type="text" class="form-control form-control-sm text-center" id="product-qty" value="1">
                         </div>
                     </div>
                     <div class="col-lg-4 col-md-2 col-md-12">
@@ -159,7 +159,7 @@
         <td class="px-2 py-1">
             <input type="hidden" name="product[]">
             <input type="hidden" name="price[]">
-            <input type="number" name="qty[]" min="0" class="form-control form-control-sm rounded-0 text-center">
+            <input type="text" name="qty[]" class="form-control form-control-sm rounded-0 text-center">
         </td>
         <td class="px-2 py-1 product_name text-start"></td>
         <td class="px-2 py-1 product_price text-end"></td>
@@ -214,6 +214,7 @@
         $('#POS-field table tbody tr').each(function() {
             var price = $(this).find('[name="price[]"]').val();
             var qty = $(this).find('[name="qty[]"]').val();
+            qty = String(qty).replace(',', '.');  // ACEPTAR COMA
             qty = qty > 0 ? qty : 0;
             var total = parseFloat(price) * parseFloat(qty);
             $(this).find('.product_total').text(parseFloat(total).toLocaleString('en-US'));
@@ -335,6 +336,7 @@
         $('#add_item').click(function() {
             var id = $('#product-id').val();
             var qty = $('#product-qty').val();
+            qty = String(qty).replace(',', '.');  // ACEPTAR COMA
             if (id == '' || qty == '' || id == null || qty == null) {
                 alert("Producto y Cantidad es requerido!");
                 return false;

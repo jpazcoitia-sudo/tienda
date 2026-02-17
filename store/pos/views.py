@@ -188,7 +188,8 @@ def salesList(request):
 def create_sales_item(request, product_id, qty, sale_instance, tipo_lista='minorista'):
     product = get_object_or_404(Products, id=product_id)
     try:
-        qty = int(qty)
+        from decimal import Decimal
+        qty = Decimal(str(qty).replace(',', '.'))
         if product.quantity < qty:
             return JsonResponse({"error": "No hay suficiente cantidad de producto para vender."}, status=400)
         

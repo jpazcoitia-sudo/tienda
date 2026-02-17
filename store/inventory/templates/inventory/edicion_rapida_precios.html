@@ -178,6 +178,16 @@ let productosModificados = new Set();
 $(document).ready(function() {
     renderizarTabla();
     
+    // Filtrar automáticamente al escribir
+    $('#buscar-producto').on('input', function() {
+        aplicarFiltros();
+    });
+    
+    // Filtrar automáticamente al cambiar proveedor u orden
+    $('#filtro-proveedor, #ordenar').on('change', function() {
+        aplicarFiltros();
+    });
+    
     // Habilitar/deshabilitar inputs en modal
     $('#check-aumentar').change(function() {
         $('#input-aumentar').prop('disabled', !this.checked);
