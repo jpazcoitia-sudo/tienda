@@ -51,6 +51,7 @@ class Products(models.Model):
     code = models.CharField(max_length=100, unique=True)
     category = models.ForeignKey('Category', on_delete=models.SET_NULL, null=True)
     name = models.CharField(max_length=255)
+    marca = models.CharField(max_length=100, blank=True, null=True, verbose_name='Marca')
     description = models.TextField(blank=True)
 
     # Costo base del producto
