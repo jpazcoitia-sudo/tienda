@@ -68,7 +68,7 @@
                 <div class="row align-items-end">
                     <div class="col-lg-5 col-md-5 col-sm-12">
                         <div class="form-group mb-3">
-                            <label for="product-id">Selecccione Producto</label>
+                            <label for="product-id">Seleccione Producto</label>
                             <select id="product-id" class="form-select form-select-sm">
                                 <option value="" disabled selected></option>
                                 {% for product in products %}
@@ -217,18 +217,18 @@
             qty = String(qty).replace(',', '.');  // ACEPTAR COMA
             qty = qty > 0 ? qty : 0;
             var total = parseFloat(price) * parseFloat(qty);
-            $(this).find('.product_total').text(parseFloat(total).toLocaleString('en-US'));
+            $(this).find('.product_total').text(parseFloat(total).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
             sub_total += parseFloat(total);
         });
 
         var tax = $('[name="tax"]').val();
         tax = tax / 100;
         var tax_amount = parseFloat(sub_total) * parseFloat(tax);
-        $('#tax_amount').text(parseFloat(tax_amount).toLocaleString('en-US'));
+        $('#tax_amount').text('AR$ ' + parseFloat(tax_amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
         $('[name="tax_amount"]').val(parseFloat(tax_amount));
-        $('#grand_total').text(parseFloat(sub_total).toLocaleString('en-US'));
+        $('#grand_total').text('AR$ ' + parseFloat(sub_total).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
         $('[name="grand_total"]').val(parseFloat(sub_total));
-        $('#sub_total').text(parseFloat(sub_total).toLocaleString('en-US'));
+        $('#sub_total').text('AR$ ' + parseFloat(sub_total).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
         $('[name="sub_total"]').val(parseFloat(sub_total));
     }
 

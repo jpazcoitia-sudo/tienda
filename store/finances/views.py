@@ -211,7 +211,7 @@ def registrar_retiro(request):
                 )
                 messages.success(
                     request,
-                    f'✅ Retiro de Efectivo registrado: AR$ {monto}'
+                    f'✅ Retiro de Efectivo registrado: AR$ {monto} - {concepto}'
                 )
             else:  # banco
                 MovimientoCaja.objects.create(
@@ -225,7 +225,7 @@ def registrar_retiro(request):
                 )
                 messages.success(
                     request,
-                    f'✅ Retiro de Banco registrado: AR$ {monto}'
+                    f'✅ Retiro de Banco registrado: AR$ {monto} - {concepto}'
                 )
             
             return redirect('finances:dashboard')
