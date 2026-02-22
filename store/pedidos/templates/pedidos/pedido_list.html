@@ -141,7 +141,7 @@
                         </td>
                     </tr>
                     {% empty %}
-                    <tr>
+                    <tr class="no-data-row">
                         <td colspan="7" class="text-center text-muted">
                             No se encontraron pedidos.
                         </td>
@@ -157,6 +157,8 @@
 {% block ScriptBlock %}
 <script>
 $(document).ready(function() {
+    $('#pedidosTable .no-data-row').remove();
+    
     $('#pedidosTable').DataTable({
         "language": {
             "url": "//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json"
