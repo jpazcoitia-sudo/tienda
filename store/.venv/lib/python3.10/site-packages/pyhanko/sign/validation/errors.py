@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional, Type
 
 from asn1crypto.core import ObjectIdentifier
@@ -11,6 +12,7 @@ __all__ = [
     'NoDSSFoundError',
     'SigSeedValueValidationError',
     'SignatureValidationError',
+    'TSTDigestNotAvailableError',
     'ValidationInfoReadingError',
 ]
 
@@ -58,11 +60,12 @@ class DisallowedAlgorithmError(SignatureValidationError):
     def __init__(
         self,
         failure_message,
-        permanent: bool,
+        time_horizon: Optional[datetime],
         oid_type: Optional[Type[ObjectIdentifier]] = None,
     ):
         self.oid_type = oid_type
-        if permanent:
+        self.time_horizon = time_horizon
+        if time_horizon is None:
             subindic = AdESIndeterminate.CRYPTO_CONSTRAINTS_FAILURE
         else:
             subindic = AdESIndeterminate.CRYPTO_CONSTRAINTS_FAILURE_NO_POE
@@ -76,4 +79,13 @@ class SigSeedValueValidationError(SignatureValidationError):
 
     # TODO perhaps we can encode some more metadata here, such as the
     #  seed value that tripped the failure.
+    pass
+
+
+class TSTDigestNotAvailableError(SignatureValidationError):
+    """
+    Error when a TST message imprint uses a digest algorithm for which
+    a digest of the subject data is not available.
+    """
+
     pass

@@ -6,7 +6,9 @@ from typing import (
     IO,
     Any,
     Awaitable,
+    Callable,
     Dict,
+    Generator,
     Generic,
     Iterable,
     List,
@@ -30,8 +32,10 @@ from pyhanko.sign.general import (
     check_ess_certid,
     extract_certificate_info,
     extract_signer_info,
+    find_cms_attribute_iter,
     find_unique_cms_attribute,
 )
+from pyhanko.sign.validation.errors import TSTDigestNotAvailableError
 from pyhanko_certvalidator import (
     CancelableAsyncIterator,
     ValidationContext,
@@ -85,10 +89,8 @@ __all__ = [
     'cms_basic_validation',
     'collect_signer_attr_status',
     'collect_timing_info',
-    'compute_signature_tst_digest',
     'extract_certs_for_validation',
     'extract_self_reported_ts',
-    'extract_tst_data',
     'get_signing_cert_attr',
     'validate_algorithm_protection',
     'validate_sig_integrity',
@@ -235,14 +237,74 @@ def validate_algorithm_protection(
                 )
 
 
+def _enforce_algorithm_usage(
+    signer_info: cms.SignerInfo,
+    cert: x509.Certificate,
+    algorithm_usage_policy: CMSAlgorithmUsagePolicy,
+    time_indic: Optional[datetime] = None,
+):
+    """
+    Enforce the algorithm usage policy.
+
+    :param signer_info:
+        A :class:`cms.SignerInfo` object.
+    :param cert:
+        The signer's certificate.
+    :param algorithm_usage_policy:
+        Algorithm usage policy.
+    :param time_indic:
+        Time indication for the production of the signature.
+    """
+    signature_algorithm: cms.SignedDigestAlgorithm = signer_info[
+        'signature_algorithm'
+    ]
+    digest_algorithm_obj = signer_info['digest_algorithm']
+    md_algorithm = digest_algorithm_obj['algorithm'].native
+    sig_algo_allowed = algorithm_usage_policy.signature_algorithm_allowed(
+        signature_algorithm, moment=time_indic, public_key=cert.public_key
+    )
+    if not sig_algo_allowed:
+        msg = (
+            f"The algorithm {signature_algorithm['algorithm'].native} "
+            f"is not allowed by the current usage policy."
+        )
+        if sig_algo_allowed.failure_reason is not None:
+            msg += f" Reason: {sig_algo_allowed.failure_reason}."
+        raise errors.DisallowedAlgorithmError(
+            msg, time_horizon=sig_algo_allowed.not_allowed_after
+        )
+    digest_algo_allowed = algorithm_usage_policy.digest_algorithm_allowed(
+        digest_algorithm_obj,
+        moment=time_indic,
+    )
+    if not digest_algo_allowed:
+        msg = (
+            f"The algorithm {digest_algorithm_obj['algorithm'].native} "
+            f"is not allowed by the current usage policy."
+        )
+        if digest_algo_allowed.failure_reason is not None:
+            msg += f" Reason: {digest_algo_allowed.failure_reason}."
+        raise errors.DisallowedAlgorithmError(
+            msg, time_horizon=digest_algo_allowed.not_allowed_after
+        )
+    digest_compatible = algorithm_usage_policy.digest_combination_allowed(
+        signature_algo=signature_algorithm,
+        message_digest_algo=algos.DigestAlgorithm({'algorithm': md_algorithm}),
+        moment=None,
+    )
+    if not digest_compatible:
+        raise errors.DisallowedAlgorithmError(
+            failure_message=digest_compatible.failure_reason,
+            time_horizon=digest_compatible.not_allowed_after,
+        )
+
+
 def validate_sig_integrity(
     signer_info: cms.SignerInfo,
     cert: x509.Certificate,
     expected_content_type: str,
     actual_digest: bytes,
     sig_validator: Optional[SignatureValidator] = None,
-    algorithm_usage_policy: Optional[CMSAlgorithmUsagePolicy] = None,
-    time_indic: Optional[datetime] = None,
 ) -> Tuple[bool, bool]:
     """
     Validate the integrity of a signature for a particular signerInfo object
@@ -267,10 +329,6 @@ def validate_sig_integrity(
         The actual digest to be matched to the message digest attribute.
     :param sig_validator:
         Signature validator implementing the cryptographic validation process.
-    :param algorithm_usage_policy:
-        Algorithm usage policy.
-    :param time_indic:
-        Time indication for the production of the signature.
     :return:
         A tuple of two booleans. The first indicates whether the provided
         digest matches the value in the signed attributes.
@@ -282,47 +340,6 @@ def validate_sig_integrity(
     ]
     digest_algorithm_obj = signer_info['digest_algorithm']
     md_algorithm = digest_algorithm_obj['algorithm'].native
-    if algorithm_usage_policy is not None:
-        sig_algo_allowed = algorithm_usage_policy.signature_algorithm_allowed(
-            signature_algorithm, moment=time_indic, public_key=cert.public_key
-        )
-        if not sig_algo_allowed:
-            msg = (
-                f"The algorithm {signature_algorithm['algorithm'].native} "
-                f"is not allowed by the current usage policy."
-            )
-            if sig_algo_allowed.failure_reason is not None:
-                msg += f" Reason: {sig_algo_allowed.failure_reason}."
-            raise errors.DisallowedAlgorithmError(
-                msg, permanent=sig_algo_allowed.not_allowed_after is None
-            )
-        digest_algo_allowed = algorithm_usage_policy.digest_algorithm_allowed(
-            digest_algorithm_obj,
-            moment=time_indic,
-        )
-        if not digest_algo_allowed:
-            msg = (
-                f"The algorithm {digest_algorithm_obj['algorithm'].native} "
-                f"is not allowed by the current usage policy."
-            )
-            if digest_algo_allowed.failure_reason is not None:
-                msg += f" Reason: {digest_algo_allowed.failure_reason}."
-            raise errors.DisallowedAlgorithmError(
-                msg, permanent=digest_algo_allowed.not_allowed_after is None
-            )
-        digest_compatible = algorithm_usage_policy.digest_combination_allowed(
-            signature_algo=signature_algorithm,
-            message_digest_algo=algos.DigestAlgorithm(
-                {'algorithm': md_algorithm}
-            ),
-            moment=None,
-        )
-        if not digest_compatible:
-            raise errors.DisallowedAlgorithmError(
-                failure_message=digest_compatible.failure_reason,
-                permanent=digest_compatible.not_allowed_after is None,
-            )
-
     signature = signer_info['signature'].native
 
     signed_attrs_orig: cms.CMSAttributes = signer_info['signed_attrs']
@@ -482,8 +499,10 @@ async def cms_basic_validation(
         )
         time_indic = validation_context.best_signature_time
     validation_context = validation_context or ValidationContext()
+    assert validation_context is not None
     if algorithm_policy is None:
         algorithm_policy = DEFAULT_ALGORITHM_USAGE_POLICY
+    assert algorithm_policy is not None
 
     signature_algorithm: cms.SignedDigestAlgorithm = signer_info[
         'signature_algorithm'
@@ -506,7 +525,20 @@ async def cms_basic_validation(
             ades_subindication=AdESFailure.FORMAT_FAILURE,
         )
 
-    # first, do the cryptographic identity checks
+    try:
+        _enforce_algorithm_usage(
+            signer_info,
+            cert,
+            algorithm_usage_policy=algorithm_policy,
+            time_indic=time_indic,
+        )
+        ades_status = error_time_horizon = None
+    except errors.DisallowedAlgorithmError as e:
+        logger.warning(
+            "Encountered disallowed algorithm during CMS validation", exc_info=e
+        )
+        ades_status = e.ades_subindication
+        error_time_horizon = e.time_horizon
     # TODO theoretically (e.g. DSA with param inheritance) this requires
     #  doing the X.509 validation step first. Since nobody cares about DSA
     #  (let alone DSA with inherited parameters), that's just a "nice to have".
@@ -516,8 +548,6 @@ async def cms_basic_validation(
             cert,
             expected_content_type=expected_content_type,
             actual_digest=raw_digest,
-            algorithm_usage_policy=algorithm_policy,
-            time_indic=time_indic,
             sig_validator=validation_context.sig_validator,
         )
     except CMSStructuralError as e:
@@ -527,8 +557,8 @@ async def cms_basic_validation(
         ) from e
 
     # next, validate trust
-    ades_status = path = revo_details = error_time_horizon = None
-    if valid:
+    path = revo_details = None
+    if valid and ades_status is None:
         try:
             validation_context.certificate_registry.register_multiple(
                 other_certs
@@ -729,73 +759,60 @@ def extract_self_reported_ts(signer_info: cms.SignerInfo) -> Optional[datetime]:
         return None
 
 
-def extract_tst_data(
-    signer_info: cms.SignerInfo, signed: bool = False
-) -> Optional[cms.SignedData]:
+def extract_tst_data_iter(
+    signer_info: cms.SignerInfo, *, signed: bool
+) -> Generator[cms.SignedData, None, None]:
     """
-    Extract signed data associated with a timestamp token.
+    Extract signed data associated with one or more timestamp tokens.
 
     Internal API.
 
     :param signer_info:
         A ``SignerInfo`` value.
     :param signed:
-        If ``True``, look for a content timestamp (among the signed
-        attributes), else look for a signature timestamp (among the unsigned
+        If ``True``, look for content timestamps (among the signed
+        attributes), else look for signature timestamps (among the unsigned
         attributes).
     :return:
-        The ``SignedData`` value found, or ``None``.
+        The ``SignedData`` values found.
     """
-    try:
-        if signed:
-            sa = signer_info['signed_attrs']
-            tst = find_unique_cms_attribute(sa, 'content_time_stamp')
-        else:
-            ua = signer_info['unsigned_attrs']
-            tst = find_unique_cms_attribute(ua, 'signature_time_stamp_token')
-        tst_signed_data = tst['content']
-        return tst_signed_data
-    except (NonexistentAttributeError, MultivaluedAttributeError):
-        return None
+    if signed:
+        sa = signer_info['signed_attrs']
+        gen = find_cms_attribute_iter(sa, 'content_time_stamp')
+    else:
+        ua = signer_info['unsigned_attrs']
+        gen = find_cms_attribute_iter(ua, 'signature_time_stamp_token')
+
+    for tst in gen:
+        yield tst['content']
 
 
-def compute_signature_tst_digest(
+def message_imprint_checker(
     signer_info: cms.SignerInfo,
-) -> Optional[bytes]:
-    """
-    Compute the digest of the signature according to the message imprint
-    algorithm information in a signature timestamp token.
+) -> Callable[[str], bytes]:
+    def _mi_check(mi_hash_algo: str) -> bytes:
+        tst_md_spec = get_hash_spec_for_tst_digest(mi_hash_algo)
+        md = hashes.Hash(tst_md_spec)
+        md.update(signer_info['signature'].native)
+        return md.finalize()
 
-    Internal API.
-
-    :param signer_info:
-        A ``SignerInfo`` value.
-    :return:
-        The computed digest, or ``None`` if there is no signature timestamp.
-    """
-
-    tst_data = extract_tst_data(signer_info)
-    if tst_data is None:
-        return None
-
-    eci = tst_data['encap_content_info']
-    mi = eci['content'].parsed['message_imprint']
-    tst_md_algorithm = mi['hash_algorithm']['algorithm'].native
-
-    signature_bytes = signer_info['signature'].native
-    tst_md_spec = get_pyca_cryptography_hash(tst_md_algorithm)
-    md = hashes.Hash(tst_md_spec)
-    md.update(signature_bytes)
-    return md.finalize()
+    return _mi_check
 
 
-# TODO support signerInfo with multivalued timestamp attributes
+def get_hash_spec_for_tst_digest(mi_hash_algo: str):
+    try:
+        return get_pyca_cryptography_hash(mi_hash_algo)
+    except AttributeError as e:
+        raise TSTDigestNotAvailableError(
+            f"Unknown hash function {mi_hash_algo!r}"
+        ) from e
 
 
 async def collect_timing_info(
     signer_info: cms.SignerInfo,
     ts_validation_context: Optional[ValidationContext],
-    raw_digest: bytes,
+    raw_digest: Callable[[str], bytes],
+    algorithm_policy: Optional[CMSAlgorithmUsagePolicy] = None,
 ):
     """
     Collect and validate timing information in a ``SignerInfo`` value.
@@ -809,6 +826,16 @@ async def collect_timing_info(
     :param raw_digest:
         The raw external message digest bytes (only relevant for the
         validation of the content timestamp token, if there is one)
+    :param algorithm_policy:
+        The algorithm usage policy for the signature validation.
+
+        .. warning::
+            This is distinct from the algorithm usage policy used for
+            certificate validation, but the latter will be used as a fallback
+            if this parameter is not specified.
+
+            It is nonetheless recommended to align both policies unless
+            there is a clear reason to do otherwise.
     """
 
     status_kwargs: Dict[str, Any] = {}
@@ -818,20 +845,25 @@ async def collect_timing_info(
     if signer_reported_dt is not None:
         status_kwargs['signer_reported_dt'] = signer_reported_dt
 
-    tst_signed_data = extract_tst_data(signer_info, signed=False)
-    if tst_signed_data is not None:
-        tst_signature_digest = compute_signature_tst_digest(signer_info)
-        assert tst_signature_digest is not None
+    tst_validity: Optional[TimestampSignatureStatus] = None
+    for tst_signed_data in extract_tst_data_iter(signer_info, signed=False):
         tst_validity_kwargs = await validate_tst_signed_data(
             tst_signed_data,
             ts_validation_context,
-            tst_signature_digest,
+            message_imprint_checker(signer_info),
+            algorithm_policy=algorithm_policy,
         )
         tst_validity = TimestampSignatureStatus(**tst_validity_kwargs)
+        if tst_validity.trusted:
+            break
+
+    if tst_validity is not None:
         status_kwargs['timestamp_validity'] = tst_validity
 
-    content_tst_signed_data = extract_tst_data(signer_info, signed=True)
-    if content_tst_signed_data is not None:
+    content_tst_validity: Optional[TimestampSignatureStatus] = None
+    for content_tst_signed_data in extract_tst_data_iter(
+        signer_info, signed=True
+    ):
         content_tst_validity_kwargs = await validate_tst_signed_data(
             content_tst_signed_data,
             ts_validation_context,
@@ -842,13 +874,19 @@ async def collect_timing_info(
         )
         status_kwargs['content_timestamp_validity'] = content_tst_validity
 
+        if content_tst_validity.trusted:
+            break
+
+    if content_tst_validity is not None:
+        status_kwargs['content_timestamp_validity'] = content_tst_validity
+
     return status_kwargs
 
 
 async def validate_tst_signed_data(
     tst_signed_data: cms.SignedData,
     validation_context: Optional[ValidationContext],
-    expected_tst_imprint: bytes,
+    expected_tst_imprint: Callable[[str], bytes],
     algorithm_policy: Optional[CMSAlgorithmUsagePolicy] = None,
 ):
     """
@@ -860,7 +898,8 @@ async def validate_tst_signed_data(
     :param validation_context:
         The validation context to validate against.
     :param expected_tst_imprint:
-        The expected message imprint value that should be contained in
+        A callable that takes a hash algorithm names and returns a digest value.
+        detailing the expected message imprint value that should be contained in
         the encapsulated ``TSTInfo``.
     :param algorithm_policy:
         The algorithm usage policy for the signature validation.
@@ -898,10 +937,13 @@ async def validate_tst_signed_data(
     # compare the expected TST digest against the message imprint
     # inside the signed data
     tst_imprint = tst_info['message_imprint']['hashed_message'].native
-    if expected_tst_imprint != tst_imprint:
+    tst_algo = tst_info['message_imprint']['hash_algorithm']['algorithm'].native
+    expected_tst_imprint_value = expected_tst_imprint(tst_algo)
+
+    if expected_tst_imprint_value != tst_imprint:
         logger.warning(
             f"Timestamp token imprint is {tst_imprint.hex()}, but expected "
-            f"{expected_tst_imprint.hex()}."
+            f"{expected_tst_imprint_value.hex()}."
         )
         status_kwargs['intact'] = False
     return status_kwargs
@@ -1100,21 +1142,35 @@ async def async_validate_detached_cms(
     if ts_validation_context is None:
         ts_validation_context = signer_validation_context
     signer_info = extract_signer_info(signed_data)
-    digest_algorithm = signer_info['digest_algorithm']['algorithm'].native
-    h = hashes.Hash(get_pyca_cryptography_hash(digest_algorithm))
-    if isinstance(input_data, bytes):
-        h.update(input_data)
-    elif isinstance(input_data, (cms.ContentInfo, cms.EncapsulatedContentInfo)):
-        h.update(bytes(input_data['content']))
-    else:
-        temp_buf = bytearray(chunk_size)
-        misc.chunked_digest(temp_buf, input_data, h, max_read=max_read)
-    digest_bytes = h.finalize()
+    digest_by_algo: Dict[str, bytes] = {}
+
+    def _content_digest(digest_algorithm: str) -> bytes:
+        try:
+            return digest_by_algo[digest_algorithm]
+        except KeyError:
+            pass
+        h = hashes.Hash(get_pyca_cryptography_hash(digest_algorithm))
+        if isinstance(input_data, bytes):
+            h.update(input_data)
+        elif isinstance(
+            input_data, (cms.ContentInfo, cms.EncapsulatedContentInfo)
+        ):
+            h.update(bytes(input_data['content']))
+        else:
+            temp_buf = bytearray(chunk_size)
+            misc.chunked_digest(temp_buf, input_data, h, max_read=max_read)
+        result = h.finalize()
+        digest_by_algo[digest_algorithm] = result
+        return result
+
+    signature_digest_algo = signer_info['digest_algorithm']['algorithm'].native
+    digest_bytes = _content_digest(signature_digest_algo)
 
     status_kwargs = await collect_timing_info(
         signer_info,
         ts_validation_context=ts_validation_context,
-        raw_digest=digest_bytes,
+        raw_digest=_content_digest,
+        algorithm_policy=algorithm_policy,
     )
     key_usage_settings = StandardCMSSignatureStatus.default_usage_constraints(
         key_usage_settings

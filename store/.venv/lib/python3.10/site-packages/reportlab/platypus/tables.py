@@ -486,7 +486,7 @@ class Table(Flowable):
         if not V: return 0,0
         aW = w - s.leftPadding - s.rightPadding
         aH = aH - s.topPadding - s.bottomPadding
-        if aW<0:
+        if not rl_config.allowTableBoundsErrors&2 and aW<0:
             raise ValueError(f'{self.identity()}: flowable given negative availWidth={aW} == width={w} - leftPadding={s.leftPadding} - rightPadding={s.rightPadding}')
         t = 0
         w = 0
@@ -664,7 +664,7 @@ class Table(Flowable):
                             dW,t = self._listCellGeom(v,w or self._listValueWidth(v),s)
                             if canv: canv._fontname, canv._fontsize, canv._leading = saved
                             dW = dW + s.leftPadding + s.rightPadding
-                            if not rl_config.allowTableBoundsErrors and dW>w:
+                            if not rl_config.allowTableBoundsErrors&1 and dW>w:
                                 from reportlab.platypus.doctemplate import LayoutError
                                 raise LayoutError("Flowable %s (%sx%s points) too wide for cell(%d,%d) (%sx* points) in\n%s" % (v[0].identity(30),fp_str(dW),fp_str(t),i,j, fp_str(w), self.identity(30)))
                         else:
@@ -2167,7 +2167,7 @@ only rows may be strings with values in {_SPECIALROWS!r}''')
     def split(self, availWidth, availHeight):
         self._calc(availWidth, availHeight)
         if self.splitByRow or self.splitInRow:
-            if not rl_config.allowTableBoundsErrors and self._width>availWidth: return []
+            if not rl_config.allowTableBoundsErrors&1 and self._width>availWidth: return []
 
             # If self.splitByRow is true, first try with doInRowSplit as false.
             # Otherwise, first try with doInRowSplit as true

@@ -2,7 +2,7 @@ import logging
 import os
 from collections import namedtuple
 from datetime import datetime
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from asn1crypto import cms, x509
 from pyhanko.pdf_utils import generic, misc
@@ -24,28 +24,20 @@ from pyhanko.sign.fields import (
     SigSeedValueSpec,
 )
 from pyhanko.sign.general import (
+    MultivaluedAttributeError,
+    NonexistentAttributeError,
     SignedDataCerts,
     UnacceptableSignerError,
     byte_range_digest,
     extract_signer_info,
 )
+from pyhanko.sign.validation import generic_cms
 from pyhanko_certvalidator import ValidationContext
 from pyhanko_certvalidator.path import ValidationPath
 
 from .errors import (
     SignatureValidationError,
     SigSeedValueValidationError,
-    ValidationInfoReadingError,
-)
-from .generic_cms import (
-    cms_basic_validation,
-    collect_signer_attr_status,
-    collect_timing_info,
-    compute_signature_tst_digest,
-    extract_certs_for_validation,
-    extract_self_reported_ts,
-    extract_tst_data,
-    validate_tst_signed_data,
 )
 from .settings import KeyUsageConstraints
 from .status import (
@@ -209,8 +201,7 @@ class EmbeddedPdfSignature:
             sig_object_ref.reference
         )
         self.coverage = None
-        self.external_digest: Optional[bytes] = None
-        self.total_len: Optional[int] = None
+        self.external_digests: Dict[str, bytes] = {}
         self._docmdp: Optional[MDPPerm] = None
         self._fieldmdp: Optional[FieldMDPSpec] = None
         self._docmdp_queried = self._fieldmdp_queried = False
@@ -222,7 +213,9 @@ class EmbeddedPdfSignature:
 
     def _init_cert_info(self) -> SignedDataCerts:
         if self._sd_cert_info is None:
-            self._sd_cert_info = extract_certs_for_validation(self.signed_data)
+            self._sd_cert_info = generic_cms.extract_certs_for_validation(
+                self.signed_data
+            )
         return self._sd_cert_info
 
     @property
@@ -274,7 +267,7 @@ class EmbeddedPdfSignature:
             signature's signed attributes or provided as part of the signature
             object in the PDF document.
         """
-        ts = extract_self_reported_ts(self.signer_info)
+        ts = generic_cms.extract_self_reported_ts(self.signer_info)
         if ts is not None:
             return ts
 
@@ -285,15 +278,6 @@ class EmbeddedPdfSignature:
             )
         except KeyError:  # pragma: nocover
             return None
-
-    @property
-    def attached_timestamp_data(self) -> Optional[cms.SignedData]:
-        """
-        :return:
-            The signed data component of the timestamp token embedded in this
-            signature, if present.
-        """
-        return extract_tst_data(self.signer_info)
 
     def compute_integrity_info(self, diff_policy=None, skip_diff=False):
         """
@@ -309,7 +293,6 @@ class EmbeddedPdfSignature:
         """
         self._enforce_hybrid_xref_policy()
         self.compute_digest()
-        self.compute_tst_digest()
 
         # TODO in scenarios where we have to verify multiple signatures, we're
         #  doing a lot of double work here. This could be improved.
@@ -428,7 +411,7 @@ class EmbeddedPdfSignature:
         self._fieldmdp = sp
         return sp
 
-    def compute_digest(self) -> bytes:
+    def compute_digest(self, hash_algo: Optional[str] = None) -> bytes:
         """
         Compute the ``/ByteRange`` digest of this signature.
         The result will be cached.
@@ -436,38 +419,19 @@ class EmbeddedPdfSignature:
         :return:
             The digest value.
         """
-        if self.external_digest is not None:
-            return self.external_digest
 
-        self.total_len, digest = byte_range_digest(
+        digest_algorithm = hash_algo or self.external_md_algorithm
+        try:
+            return self.external_digests[digest_algorithm]
+        except KeyError:
+            pass
+
+        _, digest = byte_range_digest(
             self.reader.stream,
             byte_range=self.byte_range,
-            md_algorithm=self.external_md_algorithm,
+            md_algorithm=digest_algorithm,
         )
-        self.external_digest = digest
-        return digest
-
-    def compute_tst_digest(self) -> Optional[bytes]:
-        """
-        Compute the digest of the signature needed to validate its timestamp
-        token (if present).
-
-        .. warning::
-            This computation is only relevant for timestamp tokens embedded
-            inside a regular signature.
-            If the signature in question is a document timestamp (where the
-            entire signature object is a timestamp token), this method
-            does not apply.
-
-        :return:
-            The digest value, or ``None`` if there is no timestamp token.
-        """
-
-        if self.tst_signature_digest is not None:
-            return self.tst_signature_digest
-        self.tst_signature_digest = digest = compute_signature_tst_digest(
-            self.signer_info
-        )
+        self.external_digests[digest_algorithm] = digest
         return digest
 
     def evaluate_signature_coverage(self) -> SignatureCoverageLevel:
@@ -712,12 +676,12 @@ def _validate_sv_constraints(
     if (
         flags & SigSeedValFlags.ADD_REV_INFO
     ) and sv_spec.add_rev_info is not None:
-        from pyhanko.sign.validation.ltv import retrieve_adobe_revocation_info
-
         try:
-            retrieve_adobe_revocation_info(signer_info)
+            generic_cms.find_unique_cms_attribute(
+                signer_info['signed_attrs'], "adobe_revocation_info_archival"
+            )
             revinfo_found = True
-        except ValidationInfoReadingError:
+        except (NonexistentAttributeError, MultivaluedAttributeError):
             revinfo_found = False
 
         if sv_spec.add_rev_info != revinfo_found:
@@ -889,10 +853,11 @@ async def async_validate_pdf_signature(
     )
     status_kwargs = embedded_sig.summarise_integrity_info()
 
-    ts_status_kwargs = await collect_timing_info(
+    ts_status_kwargs = await generic_cms.collect_timing_info(
         embedded_sig.signer_info,
         ts_validation_context,
-        raw_digest=embedded_sig.compute_digest(),
+        raw_digest=embedded_sig.compute_digest,
+        algorithm_policy=algorithm_policy,
     )
     status_kwargs.update(ts_status_kwargs)
     if 'signer_reported_dt' not in status_kwargs:
@@ -904,9 +869,9 @@ async def async_validate_pdf_signature(
     key_usage_settings = PdfSignatureStatus.default_usage_constraints(
         key_usage_settings
     )
-    status_kwargs = await cms_basic_validation(
+    status_kwargs = await generic_cms.cms_basic_validation(
         embedded_sig.signed_data,
-        raw_digest=embedded_sig.external_digest,
+        raw_digest=embedded_sig.compute_digest(),
         validation_context=signer_validation_context,
         status_kwargs=status_kwargs,
         key_usage_settings=key_usage_settings,
@@ -925,7 +890,7 @@ async def async_validate_pdf_signature(
             embedded_sig.other_embedded_certs
         )
     status_kwargs.update(
-        await collect_signer_attr_status(
+        await generic_cms.collect_signer_attr_status(
             sd_attr_certificates=embedded_sig.embedded_attr_certs,
             signer_cert=embedded_sig.signer_cert,
             validation_context=ac_validation_context,
@@ -978,10 +943,10 @@ async def async_validate_pdf_timestamp(
         diff_policy=diff_policy, skip_diff=skip_diff
     )
 
-    status_kwargs = await validate_tst_signed_data(
+    status_kwargs = await generic_cms.validate_tst_signed_data(
         embedded_sig.signed_data,
         validation_context,
-        embedded_sig.compute_digest(),
+        embedded_sig.compute_digest,
     )
 
     status_kwargs['coverage'] = embedded_sig.coverage

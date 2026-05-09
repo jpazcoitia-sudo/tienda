@@ -14,6 +14,7 @@ from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.misc import get_and_apply
 from pyhanko.pdf_utils.rw_common import PdfHandler
 from pyhanko.pdf_utils.writer import BasePdfFileWriter
+from pyhanko.sign.validation.generic_cms import extract_tst_data_iter
 from pyhanko_certvalidator import CertificateValidator, ValidationContext
 from pyhanko_certvalidator.path import ValidationPath
 
@@ -274,15 +275,13 @@ class DocumentSecurityStore:
             yield cert
 
     def as_validation_context(
-        self, validation_context_kwargs, include_revinfo=True
+        self, validation_context_kwargs
     ) -> ValidationContext:
         """
         Construct a validation context from the data in this DSS.
 
         :param validation_context_kwargs:
             Extra kwargs to pass to the ``__init__`` function.
-        :param include_revinfo:
-            If ``False``, revocation info is skipped.
         :return:
             A validation context preloaded with information from this DSS.
         """
@@ -291,20 +290,19 @@ class DocumentSecurityStore:
         extra_certs = validation_context_kwargs.pop('other_certs', [])
         certs = list(self.load_certs()) + extra_certs
 
-        if include_revinfo:
-            ocsps = list(validation_context_kwargs.pop('ocsps', ()))
-            for ocsp_ref in self.ocsps:
-                ocsp_stream: generic.StreamObject = ocsp_ref.get_object()
-                resp = asn1_ocsp.OCSPResponse.load(ocsp_stream.data)
-                ocsps.append(resp)
-            validation_context_kwargs['ocsps'] = ocsps
+        ocsps = list(validation_context_kwargs.pop('ocsps', ()))
+        for ocsp_ref in self.ocsps:
+            ocsp_stream: generic.StreamObject = ocsp_ref.get_object()
+            resp = asn1_ocsp.OCSPResponse.load(ocsp_stream.data)
+            ocsps.append(resp)
+        validation_context_kwargs['ocsps'] = ocsps
 
-            crls = list(validation_context_kwargs.pop('crls', ()))
-            for crl_ref in self.crls:
-                crl_stream: generic.StreamObject = crl_ref.get_object()
-                crl = asn1_crl.CertificateList.load(crl_stream.data)
-                crls.append(crl)
-            validation_context_kwargs['crls'] = crls
+        crls = list(validation_context_kwargs.pop('crls', ()))
+        for crl_ref in self.crls:
+            crl_stream: generic.StreamObject = crl_ref.get_object()
+            crl = asn1_crl.CertificateList.load(crl_stream.data)
+            crls.append(crl)
+        validation_context_kwargs['crls'] = crls
 
         return ValidationContext(other_certs=certs, **validation_context_kwargs)
 
@@ -609,9 +607,12 @@ async def collect_validation_info(
         paths.append(path)
 
     await _validate_signed_data(embedded_sig.signed_data)
-    if not skip_timestamp and embedded_sig.attached_timestamp_data is not None:
-        await _validate_signed_data(embedded_sig.attached_timestamp_data)
-
+    if not skip_timestamp:
+        for signed in (False, True):
+            for tst_signed_data in extract_tst_data_iter(
+                embedded_sig.signer_info, signed=signed
+            ):
+                await _validate_signed_data(tst_signed_data)
     return paths
 
 

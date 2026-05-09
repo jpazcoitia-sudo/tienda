@@ -1,4 +1,4 @@
-#!/Users/juanpablo/Library/CloudStorage/OneDrive-Personal/python/mysite/tienda/store/.venv/bin/python3.10
+#!/Users/juanpablo/Projects/tienda/store/.venv/bin/python3
 import sys
 from svglib import main
 if __name__ == '__main__':

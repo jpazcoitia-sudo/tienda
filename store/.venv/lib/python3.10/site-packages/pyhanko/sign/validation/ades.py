@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import (
     Any,
+    Callable,
     Dict,
     FrozenSet,
     Generator,
@@ -48,11 +49,10 @@ from pyhanko.sign.ades.report import (
 )
 from pyhanko.sign.general import (
     CMSExtractionError,
-    CMSStructuralError,
     MultivaluedAttributeError,
     NonexistentAttributeError,
     extract_certificate_info,
-    find_cms_attribute,
+    find_cms_attribute_iter,
     find_unique_cms_attribute,
 )
 from pyhanko.sign.validation import (
@@ -61,6 +61,7 @@ from pyhanko.sign.validation import (
     errors,
     generic_cms,
 )
+from pyhanko.sign.validation.errors import TSTDigestNotAvailableError
 from pyhanko.sign.validation.settings import KeyUsageConstraints
 from pyhanko.sign.validation.status import (
     DocumentTimestampStatus,
@@ -280,31 +281,31 @@ class _InternalBasicValidationResult:
 async def ades_timestamp_validation(
     tst_signed_data: cms.SignedData,
     validation_spec: SignatureValidationSpec,
-    expected_tst_imprint: bytes,
+    expected_tst_imprint: Callable[[str], bytes],
     *,
     status_cls: Type[StatusType],
     timing_info: Optional[ValidationTimingInfo] = None,
     validation_data_handlers: Optional[ValidationDataHandlers] = None,
     extra_status_kwargs: Optional[Dict[str, Any]] = None,
-) -> AdESBasicValidationResult: ...
+) -> AdESBasicValidationResult: ...  # pragma: nocover
 
 
 @overload
 async def ades_timestamp_validation(
     tst_signed_data: cms.SignedData,
     validation_spec: SignatureValidationSpec,
-    expected_tst_imprint: bytes,
+    expected_tst_imprint: Callable[[str], bytes],
     *,
     timing_info: Optional[ValidationTimingInfo] = None,
     validation_data_handlers: Optional[ValidationDataHandlers] = None,
     extra_status_kwargs: Optional[Dict[str, Any]] = None,
-) -> AdESBasicValidationResult: ...
+) -> AdESBasicValidationResult: ...  # pragma: nocover
 
 
 async def ades_timestamp_validation(
     tst_signed_data: cms.SignedData,
     validation_spec: SignatureValidationSpec,
-    expected_tst_imprint: bytes,
+    expected_tst_imprint: Callable[[str], bytes],
     timing_info: Optional[ValidationTimingInfo] = None,
     validation_data_handlers: Optional[ValidationDataHandlers] = None,
     extra_status_kwargs: Optional[Dict[str, Any]] = None,
@@ -318,7 +319,9 @@ async def ades_timestamp_validation(
     :param validation_spec:
         Validation settings to apply.
     :param expected_tst_imprint:
-        The expected message imprint in the timestamp token.
+        A callable that takes a hash algorithm names and returns a digest value.
+        detailing the expected message imprint value that should be contained in
+        the encapsulated ``TSTInfo``.
     :param timing_info:
         Data object describing the timing of the validation.
         Defaults to :meth:`.ValidationTimingInfo.now`.
@@ -352,7 +355,7 @@ async def ades_timestamp_validation(
         validation_spec.ts_qualification_requirements
         or validation_spec.qualification_requirements
     )
-    return await _ades_timestamp_validation_from_context(
+    return await ades_timestamp_validation_internal(
         tst_signed_data,
         validation_context,
         expected_tst_imprint,
@@ -419,10 +422,10 @@ def _enumerate_certs_in_paths(
         yield from _enumerate_certs_in_paths(status.content_ts_validity)
 
 
-async def _ades_timestamp_validation_from_context(
+async def ades_timestamp_validation_internal(
     tst_signed_data: cms.SignedData,
     validation_context: ValidationContext,
-    expected_tst_imprint: bytes,
+    expected_tst_imprint: Callable[[str], bytes],
     ts_qualification_requirements: Optional[QualificationRequirements],
     extra_status_kwargs: Optional[Dict[str, Any]] = None,
     status_cls=TimestampSignatureStatus,
@@ -504,23 +507,30 @@ async def _ades_process_attached_ts(
     signer_info,
     validation_context: ValidationContext,
     signed: bool,
-    tst_digest: bytes,
+    expected_tst_digest_by_md: Callable[[str], bytes],
     qualification_requirements: Optional[QualificationRequirements],
 ) -> AdESBasicValidationResult:
-    tst_signed_data = generic_cms.extract_tst_data(signer_info, signed=signed)
-    if tst_signed_data is not None:
-        return await _ades_timestamp_validation_from_context(
-            tst_signed_data,
-            validation_context,
-            tst_digest,
-            qualification_requirements,
-        )
-    return AdESBasicValidationResult(
+    # We return the first succesful result.
+    # If all results are failures, the last one is returned.
+    # (currently there's no way to track results for multiple validations)
+    result: AdESBasicValidationResult = AdESBasicValidationResult(
         ades_subindic=AdESIndeterminate.GENERIC,
         failure_msg=None,
         api_status=None,
         validation_objects=ValidationObjectSet.empty(),
     )
+    for tst_signed_data in generic_cms.extract_tst_data_iter(
+        signer_info, signed=signed
+    ):
+        result = await ades_timestamp_validation_internal(
+            tst_signed_data,
+            validation_context,
+            expected_tst_digest_by_md,
+            qualification_requirements,
+        )
+        if result.ades_subindic == AdESPassed.OK:
+            break
+    return result
 
 
 async def _process_basic_validation(
@@ -540,17 +550,32 @@ async def _process_basic_validation(
         AdESIndeterminate.OUT_OF_BOUNDS_NO_POE,
     ):
         # check content timestamp
-        # TODO allow selecting one of multiple here
-        # FIXME here and in a few other places we presume that the message
+        # TODO here and in a few other places we presume that the message
         #  imprint algorithm agrees with the TS's algorithm. This is a fairly
         #  safe assumption, but not an airtight one.
+        #  At least now the assumption is surfaced.
+        # This routine also crucially depends on the basic integrity validation
+        # to already have checked the message_digest attribute against
+        # the actual digest.
+        def _mi_check(mi_hash_algo: str) -> bytes:
+            si_hash_algo = signer_info['digest_algorithm']['algorithm'].native
+            if mi_hash_algo == si_hash_algo:
+                return generic_cms.find_unique_cms_attribute(
+                    signer_info['signed_attrs'], 'message_digest'
+                ).native
+            else:
+                raise TSTDigestNotAvailableError(
+                    f"Digest with algorithm {mi_hash_algo} is not available; "
+                    f"content timestamps where the message imprint digest "
+                    f"differs from the digest used by the surrounding signature "
+                    f"are not supported."
+                )
+
         content_ts_result = await _ades_process_attached_ts(
             signer_info,
             ts_validation_context,
             signed=True,
-            tst_digest=generic_cms.find_unique_cms_attribute(
-                signer_info['signed_attrs'], 'message_digest'
-            ).native,
+            expected_tst_digest_by_md=_mi_check,
             qualification_requirements=ts_qualification_requirements,
         )
         if content_ts_result.ades_subindic == AdESPassed.OK:
@@ -668,7 +693,7 @@ async def ades_basic_validation(
     validation_data_handlers: Optional[ValidationDataHandlers] = None,
     signature_not_before_time: Optional[datetime] = None,
     extra_status_kwargs: Optional[Dict[str, Any]] = None,
-) -> AdESBasicValidationResult: ...
+) -> AdESBasicValidationResult: ...  # pragma: nocover
 
 
 @overload
@@ -681,7 +706,7 @@ async def ades_basic_validation(
     validation_data_handlers: Optional[ValidationDataHandlers] = None,
     signature_not_before_time: Optional[datetime] = None,
     extra_status_kwargs: Optional[Dict[str, Any]] = None,
-) -> AdESBasicValidationResult: ...
+) -> AdESBasicValidationResult: ...  # pragma: nocover
 
 
 async def ades_basic_validation(
@@ -890,7 +915,7 @@ async def ades_with_time_validation(
     validation_data_handlers: Optional[ValidationDataHandlers] = None,
     signature_not_before_time: Optional[datetime] = None,
     extra_status_kwargs: Optional[Dict[str, Any]] = None,
-) -> AdESWithTimeValidationResult: ...
+) -> AdESWithTimeValidationResult: ...  # pragma: nocover
 
 
 @overload
@@ -904,7 +929,7 @@ async def ades_with_time_validation(
     validation_data_handlers: Optional[ValidationDataHandlers] = None,
     signature_not_before_time: Optional[datetime] = None,
     extra_status_kwargs: Optional[Dict[str, Any]] = None,
-) -> AdESWithTimeValidationResult: ...
+) -> AdESWithTimeValidationResult: ...  # pragma: nocover
 
 
 async def ades_with_time_validation(
@@ -1018,9 +1043,9 @@ async def ades_with_time_validation(
     )
 
     # process signature timestamps
-    # TODO allow selecting one of multiple timestamps here?
-    tst_digest = generic_cms.compute_signature_tst_digest(signer_info)
-    if tst_digest is None:
+    try:
+        next(generic_cms.extract_tst_data_iter(signer_info, signed=False))
+    except StopIteration:
         # TODO conditionally enforce this based on policy params---
         #  for now we assume that someone calling this method actually cares
         #  about timestamps
@@ -1042,7 +1067,9 @@ async def ades_with_time_validation(
         signer_info,
         ts_validation_context,
         signed=False,
-        tst_digest=tst_digest,
+        expected_tst_digest_by_md=generic_cms.message_imprint_checker(
+            signer_info
+        ),
         qualification_requirements=ts_qualification_requirements,
     )
     vos = ValidationObjectSet(
@@ -1316,7 +1343,7 @@ async def _ades_past_signature_validation(
     signed_data: cms.SignedData,
     validation_spec: SignatureValidationSpec,
     poe_manager: POEManager,
-    current_time_sub_indic: Optional[AdESIndeterminate],
+    current_time_sub_indic: Union[AdESIndeterminate, AdESPassed, None],
     init_control_time: datetime,
     is_timestamp: bool,
 ) -> ValidationPath:
@@ -1487,6 +1514,7 @@ class _PrimaFaciePOEFromTimeStamp:
     poes_implied: FrozenSet[_PrimaFaciePOEItem]
     timestamp_token_signed_data: cms.SignedData
     doc_digest: bytes
+    doc_hash_algo: str
     # include info from difference analysis as part of the status kwargs
     forensic_info: dict
 
@@ -1641,14 +1669,16 @@ def _build_prima_facie_poe_index_from_pdf_timestamps(
         )
 
         signed_data: cms.SignedData = embedded_sig.signed_data
-        ts_signed_data: Optional[cms.SignedData] = None
+        all_ts_signed_data: Iterable[cms.SignedData] = ()
         is_doc_ts = False
         if embedded_sig.sig_object_type == '/DocTimeStamp':
-            ts_signed_data = signed_data
+            all_ts_signed_data = (signed_data,)
             is_doc_ts = True
         elif include_content_ts:
-            ts_signed_data = generic_cms.extract_tst_data(
-                embedded_sig.signer_info, signed=True
+            all_ts_signed_data = tuple(
+                generic_cms.extract_tst_data_iter(
+                    embedded_sig.signer_info, signed=True
+                )
             )
 
         # Important remark: at this time, we do NOT consider signature
@@ -1662,35 +1692,39 @@ def _build_prima_facie_poe_index_from_pdf_timestamps(
         # that for now.
         # (This approach might change in the future)
 
-        if ts_signed_data is not None:
-            # add DSS content
-            try:
-                dss = DocumentSecurityStore.read_dss(hist_handler)
-                collected_so_far.update(_read_validation_objects_from_dss(dss))
-            except NoDSSFoundError:
-                pass
-            collected_so_far.update(for_next_ts)
-            doc_digest = embedded_sig.compute_digest()
-            coverage_normal = (
-                embedded_sig.evaluate_signature_coverage()
-                >= SignatureCoverageLevel.ENTIRE_REVISION
-            )
-            if coverage_normal:
-                prima_facie_poe_sets.append(
-                    _PrimaFaciePOEFromTimeStamp(
-                        pdf_revision=embedded_sig.signed_revision,
-                        timestamp_dt=_get_tst_timestamp(ts_signed_data),
-                        poes_implied=frozenset(collected_so_far),
-                        timestamp_token_signed_data=ts_signed_data,
-                        doc_digest=doc_digest,
-                        forensic_info=embedded_sig.summarise_integrity_info(),
+        if all_ts_signed_data:
+            for ts_signed_data in all_ts_signed_data:
+                # add DSS content
+                try:
+                    dss = DocumentSecurityStore.read_dss(hist_handler)
+                    collected_so_far.update(
+                        _read_validation_objects_from_dss(dss)
                     )
+                except NoDSSFoundError:
+                    pass
+                collected_so_far.update(for_next_ts)
+                doc_digest = embedded_sig.compute_digest()
+                coverage_normal = (
+                    embedded_sig.evaluate_signature_coverage()
+                    >= SignatureCoverageLevel.ENTIRE_REVISION
                 )
-                # reset for_next_ts
-                for_next_ts = set()
-            for_next_ts.update(
-                _extract_cert_digests_from_signed_data(ts_signed_data)
-            )
+                if coverage_normal:
+                    prima_facie_poe_sets.append(
+                        _PrimaFaciePOEFromTimeStamp(
+                            pdf_revision=embedded_sig.signed_revision,
+                            timestamp_dt=_get_tst_timestamp(ts_signed_data),
+                            poes_implied=frozenset(collected_so_far),
+                            timestamp_token_signed_data=ts_signed_data,
+                            doc_digest=doc_digest,
+                            doc_hash_algo=embedded_sig.external_md_algorithm,
+                            forensic_info=embedded_sig.summarise_integrity_info(),
+                        )
+                    )
+                    # reset for_next_ts
+                    for_next_ts = set()
+                for_next_ts.update(
+                    _extract_cert_digests_from_signed_data(ts_signed_data)
+                )
 
         # the certs in the signature container itself are not part of the
         # signed data in that revision, but they're covered
@@ -1733,20 +1767,14 @@ def _build_prima_facie_poe_index_from_pdf_timestamps(
         )
 
         # add POE entries for the timestamp(s) attached to this signature
-        try:
-            content_tses = find_cms_attribute(
-                signed_attrs, 'content_time_stamp'
-            )
-        except (NonexistentAttributeError, CMSStructuralError):
-            content_tses = ()
+        content_tses = find_cms_attribute_iter(
+            signed_attrs, 'content_time_stamp'
+        )
 
-        try:
-            signature_tses = find_cms_attribute(
-                embedded_sig.signer_info['unsigned_attrs'],
-                'signature_time_stamp',
-            )
-        except (NonexistentAttributeError, CMSStructuralError):
-            signature_tses = ()
+        signature_tses = find_cms_attribute_iter(
+            embedded_sig.signer_info['unsigned_attrs'],
+            'signature_time_stamp',
+        )
 
         for ts_data in itertools.chain(signature_tses, content_tses):
             ts_data_content = ts_data['content']
@@ -1800,11 +1828,21 @@ async def _validate_prima_facie_poe(
             timing_info=cur_timing_info,
             poe_manager_override=temporary_poes,
         )
+
+        def _mi_check(mi_hash_algo: str) -> bytes:
+            if mi_hash_algo == poe.doc_hash_algo:
+                return poe.doc_digest
+            else:
+                raise AssertionError(
+                    f"hash algorithm {mi_hash_algo} "
+                    f"but expected {poe.doc_hash_algo}, this is a bug."
+                )
+
         cur_time_result = await ades_timestamp_validation(
             tst_signed_data=poe.timestamp_token_signed_data,
             validation_spec=validation_spec,
             timing_info=cur_timing_info,
-            expected_tst_imprint=poe.doc_digest,
+            expected_tst_imprint=_mi_check,
             validation_data_handlers=validation_data_handlers,
             extra_status_kwargs=poe.forensic_info,
             status_cls=DocumentTimestampStatus,
@@ -1894,25 +1932,22 @@ async def _process_signature_ts(
     validation_spec: SignatureValidationSpec,
     poe_manager: POEManager,
     timing_info: ValidationTimingInfo,
-) -> Optional[AdESBasicValidationResult]:
+    signature_ts: cms.SignedData,
+) -> AdESBasicValidationResult:
     signature_bytes = embedded_sig.signer_info['signature'].native
-    signature_ts: cms.SignedData = embedded_sig.attached_timestamp_data
     cert_validation_policy = (
         validation_spec.ts_cert_validation_policy
         or validation_spec.cert_validation_policy
     )
     algo_policy = cert_validation_policy.algorithm_usage_policy
-    if signature_ts is None:
-        return None
-
-    expected_tst_imprint = embedded_sig.compute_tst_digest()
-    assert expected_tst_imprint is not None
 
     signature_ts_prelim_result = await ades_timestamp_validation(
         tst_signed_data=signature_ts,
         validation_spec=validation_spec,
         timing_info=timing_info,
-        expected_tst_imprint=expected_tst_imprint,
+        expected_tst_imprint=generic_cms.message_imprint_checker(
+            embedded_sig.signer_info
+        ),
         validation_data_handlers=bootstrap_validation_data_handlers(
             validation_spec,
             timing_info=timing_info,
@@ -1927,8 +1962,6 @@ async def _process_signature_ts(
         and ts_current_time_sub_indic in _LTA_TS_FURTHER_PROC
     ):
         try:
-            # TODO: in principle, we should also run this if the status is
-            #  PASSED already. Ensure that that is possible.
             validation_path = await _ades_past_signature_validation(
                 signed_data=signature_ts,
                 validation_spec=validation_spec,
@@ -2000,6 +2033,27 @@ def _dss_to_local_knowledge(
     return local_knowledge
 
 
+def _adobe_revinfo_archival_to_local_knowledge(
+    embedded_sig: EmbeddedPdfSignature,
+):
+    try:
+        revinfo_archival: asn1_pdf.RevocationInfoArchival = (
+            find_unique_cms_attribute(
+                embedded_sig.signer_info['signed_attrs'],
+                'adobe_revocation_info_archival',
+            )
+        )
+
+        crls = [CRLContainer(crl) for crl in revinfo_archival['crl']]
+        ocsps = [OCSPContainer(ocsp) for ocsp in revinfo_archival['ocsp']]
+        return LocalKnowledge(
+            known_ocsps=ocsps,
+            known_crls=crls,
+        )
+    except (MultivaluedAttributeError, NonexistentAttributeError):
+        return LocalKnowledge()
+
+
 async def ades_lta_validation(
     embedded_sig: EmbeddedPdfSignature,
     pdf_validation_spec: PdfSignatureValidationSpec,
@@ -2042,9 +2096,15 @@ async def ades_lta_validation(
     # Ingest CRLs, certs and OCSPs from the DSS
     # (POE info will be processed separately)
     dss_facts = _dss_to_local_knowledge(reader=embedded_sig.reader)
+    # Similarly, put revocation_info_archival data into local knowledge
+    ria_attr_facts = _adobe_revinfo_archival_to_local_knowledge(embedded_sig)
     local_knowledge = LocalKnowledge(
-        known_ocsps=init_local_knowledge.known_ocsps + dss_facts.known_ocsps,
-        known_crls=init_local_knowledge.known_crls + dss_facts.known_crls,
+        known_ocsps=init_local_knowledge.known_ocsps
+        + dss_facts.known_ocsps
+        + ria_attr_facts.known_ocsps,
+        known_crls=init_local_knowledge.known_crls
+        + dss_facts.known_crls
+        + ria_attr_facts.known_crls,
         known_certs=init_local_knowledge.known_certs + dss_facts.known_certs,
         known_poes=init_local_knowledge.known_poes,
         nonrevoked_assertions=init_local_knowledge.nonrevoked_assertions,
@@ -2143,13 +2203,24 @@ async def ades_lta_validation(
         dt=signature_prelim_result.best_signature_time,
     )
 
-    # (5) process signature TS if present
-    signature_ts_result = await _process_signature_ts(
-        embedded_sig,
-        validation_spec=augmented_validation_spec,
-        poe_manager=copy(updated_poe_manager),
-        timing_info=timing_info,
-    )
+    # (5) process signature TSes if present
+    # We keep the first succesful result.
+    # If all results are failures, the last one is preserved
+    # (currently there's no way to track results for multiple validations)
+    signature_ts_result: Optional[AdESBasicValidationResult] = None
+    for signature_ts in generic_cms.extract_tst_data_iter(
+        embedded_sig.signer_info, signed=False
+    ):
+        current_ts_result = await _process_signature_ts(
+            embedded_sig,
+            validation_spec=augmented_validation_spec,
+            poe_manager=copy(updated_poe_manager),
+            timing_info=timing_info,
+            signature_ts=signature_ts,
+        )
+        if current_ts_result.ades_subindic == AdESPassed.OK:
+            signature_ts_result = current_ts_result
+            break
     updated_api_status: Optional[PdfSignatureStatus] = (
         signature_prelim_result.api_status
     )
@@ -2161,7 +2232,7 @@ async def ades_lta_validation(
         )
 
     # (6) past signature validation
-    if isinstance(current_time_sub_indic, AdESIndeterminate):
+    if isinstance(current_time_sub_indic, (AdESPassed, AdESIndeterminate)):
         # TODO: in principle, we should also run this if the status is PASSED
         #  already. Ensure that that is possible.
         past_sig_poe_manager = copy(updated_poe_manager)
@@ -2339,6 +2410,7 @@ async def simulate_future_ades_lta_validation(
     orig_sig_validation_spec = pdf_validation_spec.signature_validation_spec
     orig_local_knowledge = orig_sig_validation_spec.local_knowledge
     dss_knowledge = _dss_to_local_knowledge(embedded_sig.reader)
+    ria_attr_facts = _adobe_revinfo_archival_to_local_knowledge(embedded_sig)
     new_nonrevoked_assertions = list(orig_local_knowledge.nonrevoked_assertions)
     # assert the nonrevoked status of the last timestamp cert, since we can't
     # get "future" revinfo anyway
@@ -2359,6 +2431,7 @@ async def simulate_future_ades_lta_validation(
         # introduce extra timestamp tokens into the validation process.
         yield from orig_local_knowledge.assert_existence_known_at(now)
         yield from dss_knowledge.assert_existence_known_at(now)
+        yield from ria_attr_facts.assert_existence_known_at(now)
         for prima_facie_poe in prima_facie_poes:
             for item in prima_facie_poe.poes_implied:
                 # for the prima facie ones, we only emit POEs for <now>, since

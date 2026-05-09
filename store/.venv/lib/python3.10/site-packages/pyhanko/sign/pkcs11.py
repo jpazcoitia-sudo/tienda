@@ -36,6 +36,7 @@ try:
         ObjectClass,
         PKCS11Error,
         Session,
+        SignMixin,
     )
     from pkcs11 import lib as p11_lib
     from pkcs11 import types as p11_types
@@ -369,7 +370,7 @@ def open_pkcs11_session(
     if user_pin is not None:
         kwargs['user_pin'] = user_pin
 
-    return token.open(**kwargs)
+    return token.open(**kwargs)  # type: ignore
 
 
 def _format_pull_err_msg(
@@ -513,7 +514,7 @@ class PKCS11Signer(Signer):
         else:
             self.bulk_fetch = bulk_fetch
         self.use_raw_mechanism = use_raw_mechanism
-        self._key_handle = None
+        self._key_handle: Optional[SignMixin] = None
         self._loaded = False
         self._sign_kwargs = base_sign_kwargs or {}
         self.__loading_event = None
@@ -600,6 +601,7 @@ class PKCS11Signer(Signer):
         await self.ensure_objects_loaded()
         from pkcs11 import SignMixin
 
+        assert self._key_handle is not None
         kh: SignMixin = self._key_handle
         spec = self._select_pkcs11_signing_params(
             digest_algorithm, sign_kwargs=self.sign_kwargs(data)
@@ -787,7 +789,7 @@ class PKCS11SigningContext:
         self, config: PKCS11SignatureConfig, user_pin: Optional[str] = None
     ):
         self.config = config
-        self._session = None
+        self._session: Optional[Session] = None
         self._user_pin = user_pin
 
     def _handle_pin(self):
