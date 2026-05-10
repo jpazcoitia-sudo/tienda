@@ -162,7 +162,7 @@
             <input type="text" name="qty[]" class="form-control form-control-sm rounded-0 text-center">
         </td>
         <td class="px-2 py-1 product_name text-start"></td>
-        <td class="px-2 py-1 product_price text-end"></td>
+        <td class="px-2 py-1 product_price text-end" style="cursor:pointer; color: #0d6efd;" title="Click para editar precio"></td>
         <td class="px-2 py-1 product_total text-end"></td>
     </tr>
 </noscript>
@@ -439,6 +439,41 @@
         // NUEVO: Cargar pedido si existe
         if (pedido_data) {
             cargarPedido(pedido_data);
+        }
+    });
+    // EDITAR PRECIO CLICKEANDO EN LA CELDA
+    $(document).on('click', '.product_price', function() {
+        var td = $(this);
+        var precio_actual = $(this).closest('tr').find('[name="price[]"]').val();
+        
+        // Reemplazar texto por input
+        td.html('<input type="number" class="form-control form-control-sm rounded-0 text-end precio-edit" value="' + precio_actual + '" style="width:80px; display:inline-block;">');
+        td.find('.precio-edit').focus().select();
+    });
+
+    // CUANDO TERMINA DE EDITAR (pierde foco o presiona Enter)
+    $(document).on('blur change', '.precio-edit', function() {
+        var input = $(this);
+        var tr = input.closest('tr');
+        var nuevo_precio = parseFloat(input.val());
+        
+        if (isNaN(nuevo_precio) || nuevo_precio <= 0) {
+            nuevo_precio = parseFloat(tr.find('[name="price[]"]').val());
+        }
+        
+        // Actualizar precio oculto
+        tr.find('[name="price[]"]').val(nuevo_precio);
+        
+        // Mostrar precio formateado
+        input.closest('td').text(parseFloat(nuevo_precio).toLocaleString('en-US'));
+        
+        // Recalcular totales
+        calc();
+    });
+
+    $(document).on('keypress', '.precio-edit', function(e) {
+        if (e.which === 13) { // Enter
+            $(this).blur();
         }
     });
 </script>

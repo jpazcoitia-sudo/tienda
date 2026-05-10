@@ -13,9 +13,9 @@
         
         body {
             margin: 0;
-            padding: 2mm 1mm;
+            padding: 1mm 0mm;
             font-family: 'Courier New', monospace;
-            font-size: 9pt;
+            font-size: 7pt;
             line-height: 1.2;
             color: #000;
         }
@@ -34,45 +34,52 @@
         width: 46mm;
         margin: 0 auto;
         font-family: 'Courier New', monospace;
-        font-size: 10pt;
-        line-height: 1.3;
+        font-size: 7pt;
+        line-height: 1.2;
     }
     
     .text-center {
         text-align: center;
     }
     
-    .text-end {
-        text-align: right;
-    }
-    
     .separator {
         border-top: 1px dashed #000;
-        margin: 3px 0;
+        margin: 2px 0;
     }
-    
+
     .item-row {
         display: flex;
         justify-content: space-between;
-        margin: 2px 0;
+        align-items: baseline;
+        width: 100%;
+        margin: 1px 0;
     }
-    
+
+    .item-qty {
+        width: 6mm;
+        flex-shrink: 0;
+        text-align: left;
+    }
+
     .item-name {
         flex: 1;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        max-width: 32mm;
+        padding: 0 1mm;
     }
-    
-    .item-qty {
-        width: 8mm;
-        text-align: center;
-    }
-    
+
     .item-price {
-        width: 16mm;
+        width: 14mm;
+        flex-shrink: 0;
         text-align: right;
+    }
+
+    .item-unit {
+        padding-left: 6mm;
+        color: #333;
+        font-size: 6.5pt;
+        margin-bottom: 1px;
     }
 </style>
 
@@ -80,14 +87,14 @@
     <div id="outprint">
         <!-- Encabezado -->
         <div class="text-center">
-            <div style="font-size: 11pt;">PUNTO DE VENTA</div>
-            <div style="font-size: 9pt;">Recibo no oficial</div>
+            <div style="font-size: 9pt; font-weight: bold;">PUNTO DE VENTA</div>
+            <div style="font-size: 7pt;">Recibo no oficial</div>
         </div>
         
         <div class="separator"></div>
         
         <!-- Fecha y código -->
-        <div style="font-size: 9pt; margin: 3px 0;">
+        <div style="font-size: 7pt; margin: 2px 0;">
             <div>Fecha: {{ formatted_date }}</div>
             <div>Ticket: {{ transaction.code }}</div>
         </div>
@@ -95,39 +102,37 @@
         <div class="separator"></div>
         
         <!-- Encabezado tabla -->
-        <div style="display: flex; justify-content: space-between; font-size: 9pt; margin-bottom: 2px;">
-            <div style="width: 8mm;">Cant</div>
-            <div style="flex: 1;">Producto</div>
-            <div style="width: 16mm; text-align: right;">Total</div>
+        <div class="item-row" style="font-size: 7pt; border-bottom: 1px solid #000; padding-bottom: 1px;">
+            <div class="item-qty">Cant</div>
+            <div class="item-name">Producto</div>
+            <div class="item-price">Total</div>
         </div>
-        
-        <div style="border-top: 1px solid #000; margin: 2px 0;"></div>
         
         <!-- Items -->
         {% for item in salesItems %}
-        <div style="margin: 3px 0; font-size: 9pt;">
-            <div style="display: flex; justify-content: space-between;">
-                <div style="width: 8mm;">{{ item.qty|floatformat:2 }}</div>
-                <div style="flex: 1; overflow: hidden; text-overflow: ellipsis;">{{ item.product }}</div>
-                <div style="width: 16mm; text-align: right;">${{ item.total|floatformat:0 }}</div>
+        <div style="margin: 1px 0;">
+            <div class="item-row">
+                <div class="item-qty">{{ item.qty|floatformat:2 }}</div>
+                <div class="item-name">{{ item.product }}</div>
+                <div class="item-price">${{ item.total|floatformat:0 }}</div>
             </div>
-            <div style="padding-left: 9mm; font-size: 8pt;">@ ${{ item.price|floatformat:0 }} c/u</div>
+            <div class="item-unit">@ ${{ item.price|floatformat:0 }} c/u</div>
         </div>
         {% endfor %}
         
-        <div style="border-top: 1px solid #000; margin: 4px 0;"></div>
+        <div style="border-top: 1px solid #000; margin: 2px 0;"></div>
         
         <!-- Totales -->
-        <div style="font-size: 10pt;">
-            <div style="display: flex; justify-content: space-between; margin: 2px 0;">
+        <div style="font-size: 7pt;">
+            <div class="item-row" style="margin: 1px 0;">
                 <div>TOTAL:</div>
-                <div style="font-size: 12pt;">${{ transaction.grand_total|floatformat:0 }}</div>
+                <div style="font-size: 9pt;">${{ transaction.grand_total|floatformat:0 }}</div>
             </div>
-            <div style="display: flex; justify-content: space-between; margin: 2px 0;">
+            <div class="item-row" style="margin: 1px 0;">
                 <div>Recibido:</div>
                 <div>${{ transaction.tendered_amount|floatformat:0 }}</div>
             </div>
-            <div style="display: flex; justify-content: space-between; margin: 2px 0;">
+            <div class="item-row" style="margin: 1px 0;">
                 <div>Vuelto:</div>
                 <div>${{ transaction.amount_change|floatformat:0 }}</div>
             </div>
@@ -136,12 +141,11 @@
         <div class="separator"></div>
         
         <!-- Pie -->
-        <div class="text-center" style="font-size: 8pt; margin-top: 4px;">
+        <div class="text-center" style="font-size: 7pt; margin-top: 2px;">
             <div>Gracias por su compra!</div>
         </div>
         
-        <!-- Espacio final mínimo -->
-        <div style="height: 5mm;"></div>
+        <div style="height: 4mm;"></div>
     </div>
     
     <hr class="no-print">
@@ -164,7 +168,6 @@
             var p = $('#outprint').clone();
             var el = $("<div>");
             
-            // Estilos para impresión térmica
             head.append(`
                 <style>
                     @page {
@@ -173,9 +176,9 @@
                     }
                     body {
                         margin: 0;
-                        padding: 2mm 1mm;
+                        padding: 1mm 0mm;
                         font-family: 'Courier New', monospace;
-                        font-size: 9pt;
+                        font-size: 7pt;
                         line-height: 1.2;
                         color: #000 !important;
                         background-color: white !important;
@@ -189,6 +192,46 @@
                     hr, .separator {
                         border-color: #000 !important;
                     }
+                    #outprint {
+                        width: 46mm;
+                        margin: 0 auto;
+                        font-family: 'Courier New', monospace;
+                        font-size: 7pt;
+                        line-height: 1.2;
+                    }
+                    .item-row {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: baseline;
+                        width: 100%;
+                        margin: 1px 0;
+                    }
+                    .item-qty {
+                        width: 6mm;
+                        flex-shrink: 0;
+                        text-align: left;
+                    }
+                    .item-name {
+                        flex: 1;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                        padding: 0 1mm;
+                    }
+                    .item-price {
+                        width: 14mm;
+                        flex-shrink: 0;
+                        text-align: right;
+                    }
+                    .item-unit {
+                        padding-left: 6mm;
+                        font-size: 6.5pt;
+                        margin-bottom: 1px;
+                    }
+                    .separator {
+                        border-top: 1px dashed #000;
+                        margin: 2px 0;
+                    }
                 </style>
             `);
             
@@ -197,7 +240,7 @@
             el.append(p);
             
             start_loader();
-            var nw = window.open('', '_blank', "width=250,height=600,left=300,top=200");
+            var nw = window.open('', '_blank', "width=220,height=600,left=300,top=200");
             nw.document.write(el.html());
             nw.document.close();
             
