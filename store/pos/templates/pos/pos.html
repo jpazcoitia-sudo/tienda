@@ -126,9 +126,9 @@
                                 <dd>
                                     <div class="input-group">
                                         <span class="input-group-text rounded-0">AR$</span>
-                                        <input type="number" class="form-control form-control-lg rounded-0 text-end" 
+                                        <input type="text" class="form-control form-control-lg rounded-0 text-end" 
                                             id="descuento_monto" name="descuento_monto" 
-                                            value="0" min="0" step="any" placeholder="0">
+                                            value="0" placeholder="0" inputmode="decimal">
                                         <span class="input-group-text rounded-0 bg-warning" id="descuento_porcentaje">0%</span>
                                     </div>
                                 </dd>
@@ -496,6 +496,17 @@
     });
     $('#descuento_monto').on('input', function() {
     calc();
+    });
+    $('#descuento_monto').on('focus', function() {
+    if ($(this).val() == '0') {
+        $(this).val('');
+    }
+    });
+
+    $('#descuento_monto').on('blur', function() {
+        if ($(this).val() == '') {
+            $(this).val('0');
+        }
     });
 </script>
 {% endblock ScriptBlock %}
