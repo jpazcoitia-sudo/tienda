@@ -52,3 +52,4 @@ claude.bk8.md
 *_NEW.*
 claude.*.md
 DECISION_*.txt
+store/db.sqlite3
