@@ -272,7 +272,7 @@ def receipt(request):
     ItemList = salesItems.objects.filter(sale=sales).all()
     
     with translation.override('es'):
-        formatted_date = DateFormat(sales.date_added).format('d \de F Y')
+        formatted_date = DateFormat(sales.date_added).format('d \d\e F Y')
     context = {
         "transaction": transaction,
         "salesItems": ItemList,

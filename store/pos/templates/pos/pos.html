@@ -360,10 +360,6 @@
                 return false;
             }
             if (!!prod_arr[id]) {
-                if ($('#POS-field table tbody input[name="product[]"][value="' + id + '"]').length > 0) {
-                    alert('El Item ya esta en la Lista.');
-                    return false;
-                }
                 var data = prod_arr[id];
                 var precio_actual = getPrecioActual(data); // CAMBIO: Usar precio según lista
                 
