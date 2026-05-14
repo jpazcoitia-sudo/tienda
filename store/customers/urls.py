@@ -21,4 +21,7 @@ urlpatterns = [
     
     # Activar/Desactivar cliente
     path('<int:pk>/toggle-activo/', views.cliente_toggle_activo, name='customer_toggle_activo'),
+
+    # Registrar pago cuenta corriente
+    path('<int:pk>/registrar-pago/', views.registrar_pago, name='registrar_pago'),
 ]

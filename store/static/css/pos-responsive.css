@@ -259,3 +259,7 @@
         width: 100% !important;
     }
 }
+fieldset {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+}

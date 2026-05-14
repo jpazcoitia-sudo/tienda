@@ -18,11 +18,13 @@
         <form action="" id="pos-form">
             <!-- Campo hidden para pedido_id si viene de conversión -->
             <input type="hidden" name="pedido_id" id="pedido-id" value="">
-            
+            <input type="hidden" name="cuenta_corriente" id="cuenta_corriente_hidden" value="0">
+            <input type="hidden" name="forma_pago" id="forma_pago_hidden" value="efectivo">
+
             <!-- NUEVO: Selector de Cliente y Tipo de Lista -->
             <fieldset class="mb-3">
                 <legend>Información del Cliente</legend>
-                <div class="row">
+                <div class="row mt-1">
                     <div class="col-lg-6 col-md-6 col-sm-12">
                         <div class="form-group mb-3">
                             <label for="cliente-id" class="form-label fw-bold">Cliente (Opcional):</label>
@@ -49,20 +51,9 @@
                             </select>
                             <small class="text-muted">Los precios se actualizarán según la lista seleccionada</small>
                         </div>
-                    </div>
-                    <div class="col-lg-6 col-md-6 col-sm-12">
-                        <div class="form-group mb-3">
-                            <label for="forma-pago" class="form-label fw-bold">Forma de Pago:</label>
-                            <select id="forma-pago" name="forma_pago" class="form-select form-select-lg">
-                                <option value="efectivo" selected>💵 Efectivo</option>
-                                <option value="banco">🏦 Banco/Transferencia</option>
-                            </select>
-                            <small class="text-muted">Selecciona cómo pagará el cliente</small>
-                        </div>
-                    </div>
+                    </div>                    
                 </div>
-            </fieldset>
-            
+            </fieldset>            
             <fieldset>
                 <legend>Agregar Producto </legend>
                 <div class="row align-items-end">
@@ -153,7 +144,7 @@
                     </div>
                 </div>
             </fieldset>
-            <div class="row">
+            <div class="row mt-1">
                 <div class="col-md-12 text-end">
                     <button class="btn btn-primary btn-sm rounded-0" type="button" id="check_out"><i class="mdi mdi-save"></i> Procesar</button>
                 </div>
@@ -397,7 +388,7 @@
                 alert("Primero, agregue al menos 1 producto!");
                 return false;
             }
-            uni_modal("Verificar", "{% url 'pos:checkout-modal' %}?grand_total=" + $('[name="grand_total"]').val());
+            uni_modal("Verificar", "{% url 'pos:checkout-modal' %}?grand_total=" + $('[name="grand_total"]').val() + "&cliente_id=" + $('#cliente-id').val());
         });
 
         $('#pos-form').submit(function(e) {

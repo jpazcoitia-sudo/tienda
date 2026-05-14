@@ -50,8 +50,14 @@ def checkout_modal(request):
     grand_total = 0
     if 'grand_total' in request.GET:
         grand_total = request.GET['grand_total']
+    
+    cliente_id = request.GET.get('cliente_id', '')
+    tiene_cliente = cliente_id != '' and cliente_id != 'None'
+
     context = {
         'grand_total': grand_total,
+        'tiene_cliente': tiene_cliente,
+        'cliente_id': cliente_id,
     }
     return render(request, 'pos/checkout.html', context)
 
@@ -141,7 +147,19 @@ def save_pos(request):
         resp['status'] = 'success'
         resp['sale'] = sale_id
         
-        if cliente:
+        # Registrar en cuenta corriente si corresponde
+        cuenta_corriente = data.get('cuenta_corriente', '0')
+        if cliente and cuenta_corriente == '1':
+            from customers.models import MovimientoCuentaCorriente
+            MovimientoCuentaCorriente.objects.create(
+                cliente=cliente,
+                tipo='venta',
+                monto=sales.grand_total,
+                venta=sales,
+                notas=f'Venta {sales.code}'
+            )
+            messages.success(request, f"Venta registrada en cuenta corriente de {cliente.name}.")
+        elif cliente:
             messages.success(request, f"Venta registrada para {cliente.name}.")
         else:
             messages.success(request, "Venta registrada (Cliente General).")

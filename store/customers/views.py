@@ -95,6 +95,14 @@ class ClienteDetailView(LoginRequiredMixin, DetailView):
         
         context['productos_top'] = productos_stats
         
+        # Cuenta corriente
+        from customers.models import MovimientoCuentaCorriente
+        movimientos = MovimientoCuentaCorriente.objects.filter(
+            cliente=cliente
+        ).order_by('-fecha')
+        context['movimientos'] = movimientos
+        context['saldo'] = cliente.get_saldo_cuenta_corriente()
+        
         return context
 
 
@@ -177,5 +185,25 @@ def cliente_toggle_activo(request, pk):
     
     estado = "activado" if cliente.activo else "desactivado"
     messages.success(request, f'Cliente "{cliente.name}" {estado} exitosamente.')
+    
+    return redirect('customers:customer_detail', pk=pk)
+
+def registrar_pago(request, pk):
+    from customers.models import MovimientoCuentaCorriente
+    cliente = get_object_or_404(Cliente, pk=pk)
+    
+    if request.method == 'POST':
+        monto = request.POST.get('monto')
+        forma_pago = request.POST.get('forma_pago', 'efectivo')
+        notas = request.POST.get('notas', '')
+        
+        MovimientoCuentaCorriente.objects.create(
+            cliente=cliente,
+            tipo='pago',
+            monto=monto,
+            forma_pago=forma_pago,
+            notas=notas
+        )
+        messages.success(request, f"Pago de AR$ {monto} registrado para {cliente.name}.")
     
     return redirect('customers:customer_detail', pk=pk)

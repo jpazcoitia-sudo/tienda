@@ -122,3 +122,81 @@ class Cliente(models.Model):
         from pos.models import Sales
         ultima = Sales.objects.filter(cliente=self).order_by('-date_added').first()
         return ultima.date_added if ultima else None
+    
+    def get_saldo_cuenta_corriente(self):
+        """Retorna el saldo actual de la cuenta corriente (negativo = debe)"""
+        movimientos = self.movimientos_cuenta.all()
+        saldo = 0
+        for m in movimientos:
+            if m.tipo == 'pago':
+                saldo += m.monto
+            else:  # venta
+                saldo -= m.monto
+        return saldo
+
+class MovimientoCuentaCorriente(models.Model):
+    
+    TIPO_CHOICES = [
+        ('venta', 'Venta'),
+        ('pago', 'Pago'),
+    ]
+    
+    FORMA_PAGO_CHOICES = [
+        ('efectivo', 'Efectivo'),
+        ('transferencia', 'Transferencia'),
+    ]
+    
+    cliente = models.ForeignKey(
+        Cliente,
+        on_delete=models.CASCADE,
+        related_name='movimientos_cuenta',
+        verbose_name='Cliente'
+    )
+    
+    tipo = models.CharField(
+        max_length=10,
+        choices=TIPO_CHOICES,
+        verbose_name='Tipo'
+    )
+    
+    monto = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        verbose_name='Monto'
+    )
+    
+    forma_pago = models.CharField(
+        max_length=20,
+        choices=FORMA_PAGO_CHOICES,
+        blank=True,
+        null=True,
+        verbose_name='Forma de Pago'
+    )
+    
+    venta = models.ForeignKey(
+        'pos.Sales',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='movimiento_cuenta',
+        verbose_name='Venta'
+    )
+    
+    notas = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name='Notas'
+    )
+    
+    fecha = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Fecha'
+    )
+
+    class Meta:
+        verbose_name = 'Movimiento Cuenta Corriente'
+        verbose_name_plural = 'Movimientos Cuenta Corriente'
+        ordering = ['-fecha']
+
+    def __str__(self):
+        return f"{self.cliente.name} - {self.tipo} - ${self.monto}"

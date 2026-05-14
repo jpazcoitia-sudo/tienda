@@ -18,32 +18,17 @@
     </div>
 </div>
 
-<!-- Información del Cliente -->
+<!-- 1. Datos del cliente + Estadísticas -->
 <div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-8">
     <div class="mdc-card">
         <div class="card-body">
             <h5 class="card-title">Información Personal</h5>
             <table class="table table-borderless">
-                <tr>
-                    <th width="30%">Nombre:</th>
-                    <td>{{ cliente.name }}</td>
-                </tr>
-                <tr>
-                    <th>DNI/CUIT:</th>
-                    <td>{{ cliente.dni }}</td>
-                </tr>
-                <tr>
-                    <th>Teléfono:</th>
-                    <td>{{ cliente.phone|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <th>Email:</th>
-                    <td>{{ cliente.email|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <th>Dirección:</th>
-                    <td>{{ cliente.address|default:"-" }}</td>
-                </tr>
+                <tr><th width="30%">Nombre:</th><td>{{ cliente.name }}</td></tr>
+                <tr><th>DNI/CUIT:</th><td>{{ cliente.dni }}</td></tr>
+                <tr><th>Teléfono:</th><td>{{ cliente.phone|default:"-" }}</td></tr>
+                <tr><th>Email:</th><td>{{ cliente.email|default:"-" }}</td></tr>
+                <tr><th>Dirección:</th><td>{{ cliente.address|default:"-" }}</td></tr>
                 <tr>
                     <th>Tipo de Cliente:</th>
                     <td>
@@ -70,12 +55,8 @@
                         </a>
                     </td>
                 </tr>
-                <tr>
-                    <th>Fecha de Registro:</th>
-                    <td>{{ cliente.date_added|date:"d/m/Y H:i" }}</td>
-                </tr>
+                <tr><th>Fecha de Registro:</th><td>{{ cliente.date_added|date:"d/m/Y H:i" }}</td></tr>
             </table>
-            
             {% if cliente.notas %}
             <div class="mt-3">
                 <h6>Notas:</h6>
@@ -86,7 +67,6 @@
     </div>
 </div>
 
-<!-- Estadísticas -->
 <div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-4">
     <div class="mdc-card">
         <div class="card-body">
@@ -105,13 +85,19 @@
                 <p>{{ cliente.get_ultima_venta|date:"d/m/Y H:i" }}</p>
             </div>
             {% endif %}
+            <div class="mt-3">
+                <button class="btn btn-outline-info btn-sm w-100" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#productosTop">
+                    <i class="mdi mdi-chart-bar"></i> Ver Productos más comprados
+                </button>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Productos Más Comprados -->
+<!-- Productos más comprados (colapsable) -->
 {% if productos_top %}
-<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12 collapse" id="productosTop">
     <div class="mdc-card">
         <div class="card-body">
             <h5 class="card-title">Productos Más Comprados</h5>
@@ -140,7 +126,74 @@
 </div>
 {% endif %}
 
-<!-- Historial de Ventas -->
+<!-- 2. Cuenta Corriente -->
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="card-title mb-0">Cuenta Corriente</h5>
+                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalPago">
+                    <i class="mdi mdi-cash"></i> Registrar Pago
+                </button>
+            </div>
+
+            <!-- Saldo -->
+            <div class="mb-3 p-2 rounded d-inline-block {% if saldo < 0 %}bg-danger bg-opacity-10{% else %}bg-success bg-opacity-10{% endif %}">
+                <h6 class="text-dark mb-0">Saldo Actual:
+                    {% if saldo < 0 %}
+                        <span class="text-white fw-bold">AR$ {{ saldo|floatformat:2 }} (Debe)</span>
+                    {% else %}
+                        <span class="text-white fw-bold">AR$ {{ saldo|floatformat:2 }} (Al día)</span>
+                    {% endif %}
+                </h6>
+            </div>
+
+            <!-- Movimientos -->
+            {% if movimientos %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Forma de Pago</th>
+                            <th class="text-end">Monto</th>
+                            <th>Notas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mov in movimientos %}
+                        <tr>
+                            <td>{{ mov.fecha|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                {% if mov.tipo == 'venta' %}
+                                    <span class="badge bg-danger">Venta</span>
+                                {% else %}
+                                    <span class="badge bg-success">Pago</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ mov.get_forma_pago_display|default:"-" }}</td>
+                            <td class="text-end">
+                                {% if mov.tipo == 'venta' %}
+                                    <span class="text-danger">-AR$ {{ mov.monto|floatformat:2 }}</span>
+                                {% else %}
+                                    <span class="text-success">+AR$ {{ mov.monto|floatformat:2 }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ mov.notas|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+                <p class="text-muted">Sin movimientos en cuenta corriente.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 3. Historial de Ventas -->
 <div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
     <div class="mdc-card">
         <div class="card-body">
@@ -152,6 +205,7 @@
                         <tr>
                             <th>Fecha</th>
                             <th>Total</th>
+                            <th>Forma de Pago</th>
                             <th>Estado</th>
                             <th>Acciones</th>
                         </tr>
@@ -161,14 +215,11 @@
                         <tr>
                             <td>{{ venta.date_added|date:"d/m/Y H:i" }}</td>
                             <td>AR$ {{ venta.grand_total|floatformat:2 }}</td>
-                            <td>
-                                <span class="badge bg-success">Completada</span>
-                            </td>
+                            <td>{{ venta.forma_pago|default:"-" }}</td>
+                            <td><span class="badge bg-success">Completada</span></td>
                             <td>
                                 <a href="{% url 'pos:receipt-modal' %}?id={{ venta.pk }}" 
-                                   class="btn btn-sm btn-info" 
-                                   target="_blank" 
-                                   title="Ver recibo">
+                                   class="btn btn-sm btn-info" target="_blank" title="Ver recibo">
                                     <i class="mdi mdi-receipt"></i>
                                 </a>
                             </td>
@@ -183,4 +234,46 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Registrar Pago -->
+<div class="modal fade" id="modalPago" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Registrar Pago - {{ cliente.name }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{% url 'customers:registrar_pago' cliente.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    {% if saldo < 0 %}
+                    <div class="alert alert-warning">
+                        Saldo pendiente: AR$ {{ saldo|floatformat:2 }}
+                    </div>
+                    {% endif %}
+                    <div class="mb-3">
+                        <label class="form-label">Monto</label>
+                        <input type="number" name="monto" class="form-control" step="any" min="0" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Forma de Pago</label>
+                        <select name="forma_pago" class="form-select">
+                            <option value="efectivo">💵 Efectivo</option>
+                            <option value="transferencia">🏦 Transferencia</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notas (opcional)</label>
+                        <input type="text" name="notas" class="form-control" placeholder="Ej: Pago parcial">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Registrar Pago</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock pageContent %}
