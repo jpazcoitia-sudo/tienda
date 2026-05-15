@@ -44,7 +44,13 @@
 
         <div id="campos-pago">
             <div class="form-group mb-3">
-                <label for="tendered_amount" class="control-label">Monto recibido</label>
+                <div class="d-flex justify-content-between align-items-center">
+                    <label for="tendered_amount" class="control-label">Monto recibido</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="monto_exacto">
+                        <label class="form-check-label small" for="monto_exacto">Monto exacto</label>
+                    </div>
+                </div>
                 <input type="number" step="any" id="tendered_amount" class="form-control form-control-lg rounded-0 text-end" value="" placeholder="0.00">
             </div>
             <div class="form-group mb-3">
@@ -66,24 +72,32 @@
     $(function() {
         // Bloquear botón Guardar hasta que haya monto o cuenta corriente
         function verificarHabilitacion() {
-        var monto = parseFloat($('#tendered_amount').val()) || 0;
-        var cuentaCorriente = $('#cuenta_corriente').is(':checked');
-        
-        if (monto > 0 || cuentaCorriente) {
-            $('#submit').prop('disabled', false);
-        } else {
-            $('#submit').prop('disabled', true);
-        }
+            var monto = cleanNumber($('#tendered_amount').val());
+            var cuentaCorriente = $('#cuenta_corriente').is(':checked');
+    
+            if (monto > 0 || cuentaCorriente) {
+                $('#submit').prop('disabled', false);
+            } else {
+                $('#submit').prop('disabled', true);
+            }
         }
 
         // Deshabilitar al cargar
         $('#submit').prop('disabled', true);
 
-        // Verificar cuando cambia monto o checkbox
-        $('#tendered_amount').on('input', function() {
-            verificarHabilitacion();
+        // Check monto exacto  ← AGREGAR ACÁ
+        $('#monto_exacto').on('change', function() {
+            if ($(this).is(':checked')) {
+                var payable = cleanNumber($('#payable_amount').val());
+                $('#tendered_amount').val(payable);
+            } else {
+                $('#tendered_amount').val('');
+            }
+            setTimeout(function() {
+                verificarHabilitacion();
+            }, 50);
         });
-
+        
         $('#cuenta_corriente').on('change', function() {
             verificarHabilitacion();
         });
