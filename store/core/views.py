@@ -32,6 +32,15 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError
 from django.shortcuts import render
 
+from django.utils import timezone
+from django.db.models import Sum, Count, Q, F
+from decimal import Decimal
+import datetime
+import calendar
+from finances.models import Caja
+from customers.models import Cliente, MovimientoCuentaCorriente
+from inventory.models import Products
+
 User = get_user_model()
 
 from.forms import *
@@ -64,31 +73,83 @@ def logoutuser(request):
 
 @login_required
 def home(request):
-    now = datetime.now()
-    current_year = now.strftime("%Y")
-    current_month = now.strftime("%m")
-    current_day = now.strftime("%d")
-    categories = len(Category.objects.all())
-    products = len(Products.objects.all())
-    transaction = len(Sales.objects.filter(
-        date_added__year=current_year,
-        date_added__month = current_month,
-        date_added__day = current_day
-    ))
-    today_sales = Sales.objects.filter(
-        date_added__year=current_year,
-        date_added__month = current_month,
-        date_added__day = current_day
-    ).all()
-    total_sales = sum(today_sales.values_list('grand_total',flat=True))
+    hoy = timezone.now().date()
+    now = timezone.now()
+
+    # ── VENTAS HOY ──────────────────────────────────────────
+    ventas_hoy = Sales.objects.filter(date_added__date=hoy)
+    total_ventas_hoy = Decimal(str(ventas_hoy.aggregate(t=Sum('grand_total'))['t'] or 0))
+    cantidad_ventas_hoy = ventas_hoy.count()
+    ticket_promedio = (total_ventas_hoy / cantidad_ventas_hoy) if cantidad_ventas_hoy else Decimal('0')
+
+    # ── ESTADO CAJA ─────────────────────────────────────────
+    caja = Caja.get_instance()
+
+    # ── CUENTA CORRIENTE ────────────────────────────────────
+    clientes_con_deuda = []
+    total_deuda = Decimal('0')
+    for cliente in Cliente.objects.filter(activo=True):
+        saldo = cliente.get_saldo_cuenta_corriente()
+        if saldo < 0:
+            clientes_con_deuda.append({'cliente': cliente, 'saldo': saldo})
+            total_deuda += abs(saldo)
+    clientes_con_deuda.sort(key=lambda x: x['saldo'])
+
+    # ── PUNTO DE PEDIDO ─────────────────────────────────────
+    productos_bajo_stock = Products.objects.filter(
+        punto_pedido__gt=0,
+        quantity__lte=F('punto_pedido')
+    ).order_by('quantity')
+
+    # ── COMPARATIVA MENSUAL ─────────────────────────────────
+    primer_dia_mes = hoy.replace(day=1)
+    dia_del_mes = hoy.day
+
+    if hoy.month == 1:
+        mes_ant = hoy.replace(year=hoy.year - 1, month=12, day=1)
+    else:
+        mes_ant = hoy.replace(month=hoy.month - 1, day=1)
+
+    ultimo_dia_mes_ant = calendar.monthrange(mes_ant.year, mes_ant.month)[1]
+    dia_corte_mes_ant = min(dia_del_mes, ultimo_dia_mes_ant)
+    fin_periodo_mes_ant = mes_ant.replace(day=dia_corte_mes_ant)
+
+    ventas_mes_actual = Decimal(str(Sales.objects.filter(
+        date_added__date__gte=primer_dia_mes,
+        date_added__date__lte=hoy
+    ).aggregate(t=Sum('grand_total'))['t'] or 0))
+
+    ventas_mes_anterior = Decimal(str(Sales.objects.filter(
+        date_added__date__gte=mes_ant,
+        date_added__date__lte=fin_periodo_mes_ant
+    ).aggregate(t=Sum('grand_total'))['t'] or 0))
+
+    diferencia_meses = ventas_mes_actual - ventas_mes_anterior
+    if ventas_mes_anterior > 0:
+        porcentaje_cambio = (diferencia_meses / ventas_mes_anterior) * 100
+    else:
+        porcentaje_cambio = Decimal('100') if ventas_mes_actual > 0 else Decimal('0')
+
     context = {
-        'page_title':'Home',
-        'categories' : categories,
-        'products' : products,
-        'transaction' : transaction,
-        'total_sales' : total_sales,
+        'page_title': 'Home',
+        'total_ventas_hoy': total_ventas_hoy,
+        'cantidad_ventas_hoy': cantidad_ventas_hoy,
+        'ticket_promedio': ticket_promedio,
+        'caja': caja,
+        'clientes_con_deuda': clientes_con_deuda[:5],
+        'total_clientes_deuda': len(clientes_con_deuda),
+        'total_deuda': total_deuda,
+        'productos_bajo_stock': productos_bajo_stock[:8],
+        'total_productos_alerta': productos_bajo_stock.count(),
+        'ventas_mes_actual': ventas_mes_actual,
+        'ventas_mes_anterior': ventas_mes_anterior,
+        'diferencia_meses': diferencia_meses,
+        'porcentaje_cambio': porcentaje_cambio,
+        'dia_del_mes': dia_del_mes,
+        'nombre_mes_actual': now.strftime('%B'),
+        'nombre_mes_anterior': mes_ant.strftime('%B'),
     }
-    return render(request, 'home.html',context)
+    return render(request, 'home.html', context)
 
 
 def about(request):

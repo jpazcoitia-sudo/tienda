@@ -1,97 +1,188 @@
-{% extends "base.html" %} 
-{% load static %}{% load humanize %} {% block pageContent %}
-<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
-    <div class="mdc-card">
-        <div class="d-flex justify-content-between">
-            <h4 class="card-title mb-0">Pagina de Inicio</h4>
-        </div>
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block extra_css %}
+<style>
+    .metric-card {
+        border-radius: 8px;
+        height: 100%;
+    }
+    .metric-value {
+        font-size: 1.6rem;
+        font-weight: 700;
+    }
+    .metric-sub {
+        font-size: 0.82rem;
+        color: #6c757d;
+    }
+    .alert-row {
+        font-size: 0.85rem;
+        border-bottom: 1px solid #f0f0f0;
+        padding: 6px 0;
+    }
+    .alert-row:last-child { border-bottom: none; }
+    .card-header-custom {
+        font-weight: 600;
+        font-size: 0.9rem;
+        padding: 10px 16px;
+        border-radius: 8px 8px 0 0;
+    }
+</style>
+{% endblock %}
+
+{% block pageContent %}
+
+<!-- Título -->
+<div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h4 class="mb-0 fw-bold">Panel Principal</h4>
+        <span class="text-muted" style="font-size:0.85rem;">{{ nombre_mes_actual }} — día {{ dia_del_mes }}</span>
     </div>
 </div>
-<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
-    <hr class="w-100">
-</div>
-<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-3-desktop mdc-layout-grid__cell--span-3-tablet">
-    <div class="mdc-card info-card info-card--success">
-        <div class="card-inner">
-            <h5 class="card-title">
-                <a href="{% url 'inventory:category_list' %}">Categorias</a>
-            </h5>
-            <h5 class="font-weight-light pb-2 mb-1 border-bottom">{{ categories|intcomma }}</h5>
-            <p class="tx-12 text-muted">Cantidad de Categorias</p>
-            
-            <div class="card-icon-wrapper">
-                <i class="material-icons">list</i>
-            </div>
-        </div>
-    </div>
-</div>
-<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-3-desktop mdc-layout-grid__cell--span-3-tablet">
-    <div class="mdc-card info-card info-card--primary">
-        <div class="card-inner">
-            <h5 class="card-title">
-                <a href="{% url 'inventory:product_list' %}">Productos</a>
-            </h5>
-            <h5 class="font-weight-light pb-2 mb-1 border-bottom">{{ products|intcomma }}</h5>
-            <p class="tx-12 text-muted">Cantidad de Productos</p>
-            <div class="card-icon-wrapper">
-                <i class="material-icons">label</i>
-            </div>
-        </div>
-    </div>
-</div>
-<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-3-desktop mdc-layout-grid__cell--span-3-tablet">
-    <div class="mdc-card info-card info-card--info">
-        <div class="card-inner">
-            <h5 class="card-title">
-                <a href="{% url 'pos:sales-page' %}">Transacciones de Hoy</a>
-            </h5>
-            <h5 class="font-weight-light pb-2 mb-1 border-bottom">{{ transaction|intcomma }}</h5>
-            <p class="tx-12 text-muted">Cantidad de las Transacciones de Hoy</p>
-            <div class="card-icon-wrapper">
-                <i class="material-icons">receipt</i>
-            </div>
-        </div>
-    </div>
-</div>
-<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-3-desktop mdc-layout-grid__cell--span-3-tablet">
-    <div class="mdc-card info-card info-card--warning">
-        <div class="card-inner">
-            <h5 class="card-title">Ventas de Hoy</h5>
-            <h5 class="font-weight-light pb-2 mb-1 border-bottom">{{ total_sales|intcomma }}</h5>
-            <p class="tx-12 text-muted">Ventas Totales de Hoy</p>
-            <div class="card-icon-wrapper">
-                <i class="mdi mdi-cash-multiple"></i>
-            </div>
-        </div>
-    </div>
-</div>
-<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-3-desktop mdc-layout-grid__cell--span-3-tablet">
-    <div class="mdc-card info-card info-card--warning">
-        <div class="card-inner">
-            <h5 class="card-title">
-                <a href="{% url 'purchase:supplier_list' %}">Transacciones de Hoy</a>
-            </h5>
-            <h5 class="font-weight-light pb-2 mb-1 border-bottom">{{ total_sales|intcomma }}</h5>
-            <p class="tx-12 text-muted">Ventas Totales de Hoy</p>
-            <div class="card-icon-wrapper">
-                <i class="mdi mdi-cash-multiple"></i>
+
+<!-- FILA 1: Ventas hoy + Caja -->
+<div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-6-desktop mdc-layout-grid__cell--span-12-tablet mdc-layout-grid__cell--span-12-phone">
+    <div class="mdc-card metric-card">
+        <div class="card-header-custom bg-primary text-white">💰 Ventas de Hoy</div>
+        <div class="card-body">
+            <div class="metric-value text-primary">AR$ {{ total_ventas_hoy|floatformat:2 }}</div>
+            <div class="mt-2 d-flex gap-4">
+                <div>
+                    <div class="metric-sub">Transacciones</div>
+                    <strong>{{ cantidad_ventas_hoy }}</strong>
+                </div>
+                <div>
+                    <div class="metric-sub">Ticket promedio</div>
+                    <strong>AR$ {{ ticket_promedio|floatformat:2 }}</strong>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-3-desktop mdc-layout-grid__cell--span-3-tablet">
-    <div class="mdc-card info-card info-card--warning">
-        <div class="card-inner">
-            <h5 class="card-title">
-                <a href="{% url 'report:mix_report' %}">Reportes Diario de Transacciones</a>
-            </h5>
-            <h5 class="font-weight-light pb-2 mb-1 border-bottom">{{ total_sales|intcomma }}</h5>
-            <p class="tx-12 text-muted">Ventas Totales de Hoy</p>
-            <div class="card-icon-wrapper">
-                <i class="mdi mdi-cash-multiple"></i>
+<div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-6-desktop mdc-layout-grid__cell--span-12-tablet mdc-layout-grid__cell--span-12-phone">
+    <div class="mdc-card metric-card">
+        <div class="card-header-custom bg-success text-white">💵 Estado de Caja</div>
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                    <div class="metric-sub">Efectivo</div>
+                    <div class="metric-value text-success">AR$ {{ caja.saldo_efectivo|floatformat:2 }}</div>
+                </div>
+                <div class="text-end">
+                    <div class="metric-sub">Banco</div>
+                    <div class="metric-value text-info">AR$ {{ caja.saldo_banco|floatformat:2 }}</div>
+                </div>
+            </div>
+            <div class="mt-1">
+                <span class="metric-sub">Total disponible: </span>
+                <strong>AR$ {{ caja.total_disponible|floatformat:2 }}</strong>
             </div>
         </div>
     </div>
 </div>
-{% endblock pageContent %}
+
+<!-- FILA 2: Cuenta corriente + Punto de pedido -->
+<div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-6-desktop mdc-layout-grid__cell--span-12-tablet mdc-layout-grid__cell--span-12-phone">
+    <div class="mdc-card metric-card">
+        <div class="card-header-custom bg-warning text-dark d-flex justify-content-between align-items-center">
+            <span>👥 Cuenta Corriente</span>
+            {% if total_clientes_deuda > 0 %}
+            <span class="badge bg-danger">{{ total_clientes_deuda }} clientes</span>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            {% if clientes_con_deuda %}
+                <div class="metric-sub mb-2">
+                    Total adeudado: <strong class="text-danger">AR$ {{ total_deuda|floatformat:2 }}</strong>
+                </div>
+                {% for item in clientes_con_deuda %}
+                <div class="alert-row d-flex justify-content-between">
+                    <a href="{% url 'customers:customer_detail' item.cliente.pk %}" class="text-decoration-none text-dark">
+                        {{ item.cliente.name }}
+                    </a>
+                    <span class="text-danger fw-bold">AR$ {{ item.saldo|floatformat:2 }}</span>
+                </div>
+                {% endfor %}
+                {% if total_clientes_deuda > 5 %}
+                <div class="mt-2">
+                    <a href="{% url 'customers:customer_list' %}" class="btn btn-sm btn-outline-warning">
+                        Ver todos ({{ total_clientes_deuda }})
+                    </a>
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="text-muted text-center py-3">✅ Sin deudas pendientes</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-6-desktop mdc-layout-grid__cell--span-12-tablet mdc-layout-grid__cell--span-12-phone">
+    <div class="mdc-card metric-card">
+        <div class="card-header-custom bg-danger text-white d-flex justify-content-between align-items-center">
+            <span>📦 Punto de Pedido</span>
+            {% if total_productos_alerta > 0 %}
+            <span class="badge bg-light text-danger">{{ total_productos_alerta }}</span>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            {% if productos_bajo_stock %}
+                {% for producto in productos_bajo_stock %}
+                <div class="alert-row d-flex justify-content-between">
+                    <a href="{% url 'inventory:product_detail' producto.pk %}" class="text-decoration-none text-dark">
+                        {{ producto.name }}
+                    </a>
+                    <span>
+                        <span class="text-danger fw-bold" title="Stock actual">{{ producto.quantity }}</span>
+                        <span class="text-muted" title="Punto de pedido"> (min: {{ producto.punto_pedido|floatformat:0 }})</span>
+                    </span>
+                </div>
+                {% endfor %}
+                {% if total_productos_alerta > 8 %}
+                <div class="mt-2">
+                    <a href="{% url 'inventory:product_list' %}" class="btn btn-sm btn-outline-danger">
+                        Ver todos ({{ total_productos_alerta }})
+                    </a>
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="text-muted text-center py-3">✅ Stock en orden</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- FILA 3: Comparativa mensual -->
+<div class="mdc-layout-grid__cell mdc-layout-grid__cell--span-12">
+    <div class="mdc-card metric-card">
+        <div class="card-header-custom bg-secondary text-white">
+            📊 Comparativa Mensual (al día {{ dia_del_mes }})
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-12 col-md-4 mb-3 mb-md-0">
+                    <div class="metric-sub">{{ nombre_mes_actual }} (mes actual)</div>
+                    <div class="metric-value text-secondary">AR$ {{ ventas_mes_actual|floatformat:2 }}</div>
+                </div>
+                <div class="col-12 col-md-4 mb-3 mb-md-0">
+                    <div class="metric-sub">{{ nombre_mes_anterior }} (mismo período)</div>
+                    <div class="metric-value text-muted">AR$ {{ ventas_mes_anterior|floatformat:2 }}</div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <div class="metric-sub">Diferencia</div>
+                    <div class="metric-value {% if diferencia_meses >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        {% if diferencia_meses >= 0 %}+{% endif %}AR$ {{ diferencia_meses|floatformat:2 }}
+                    </div>
+                    <div class="metric-sub">
+                        {% if diferencia_meses >= 0 %}▲{% else %}▼{% endif %}
+                        {{ porcentaje_cambio|floatformat:1 }}% vs mes anterior
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

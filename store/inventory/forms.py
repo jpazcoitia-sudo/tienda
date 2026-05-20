@@ -32,7 +32,7 @@ class ProductsForm(forms.ModelForm):
     class Meta:
         model = Products
         fields = ['code', 'category', 'name', 'description', 
-                  'cost', 'margen_mayorista', 'margen_minorista', 'status']
+                  'cost', 'margen_mayorista', 'margen_minorista', 'punto_pedido', 'status']
         labels = {
             'code': 'Código',
             'category': 'Categoría',
@@ -42,6 +42,7 @@ class ProductsForm(forms.ModelForm):
             'margen_mayorista': 'Margen Mayorista (%)',
             'margen_minorista': 'Margen Minorista (%)',
             'status': 'Estado',
+            'punto_pedido': 'Punto de Pedido',
         }
         widgets = {
             'code': forms.TextInput(attrs={
@@ -77,5 +78,10 @@ class ProductsForm(forms.ModelForm):
             }),
             'status': forms.Select(attrs={
                 'class': 'form-control',
+            }),
+            'punto_pedido': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: 5 (0 = sin alerta)',
+                'step': '0.01',
             }),
         }

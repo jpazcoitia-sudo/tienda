@@ -95,6 +95,14 @@ class Products(models.Model):
     date_updated = models.DateTimeField(auto_now=True)
     quantity = models.PositiveIntegerField(default=0)
 
+    punto_pedido = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name='Punto de Pedido',
+        help_text='Avisar cuando el stock llegue a este valor (0 = sin alerta)'
+    )
+
     class Meta:
         indexes = [
             models.Index(fields=['code']),
