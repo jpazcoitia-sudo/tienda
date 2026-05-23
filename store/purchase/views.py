@@ -159,22 +159,78 @@ class PurchaseCreate(LoginRequiredMixin, PermissionRequiredMixin, generic.Templa
             return redirect('purchase:purchase_create')
 
     
-class PurchaseUpdate(LoginRequiredMixin, PermissionRequiredMixin, generic.UpdateView):
-    model = PurchaseProduct
-    form_class = PurchaseForm  
+class PurchaseUpdate(LoginRequiredMixin, PermissionRequiredMixin, generic.View):
     template_name = 'purchases/purchase_update.html'
-    success_url = reverse_lazy('purchase:purchase_list')
     permission_required = 'purchase.change_purchaseproduct'
-    
-    def form_valid(self, form):
-        purchase_name = self.get_object().product.name
-        response = super().form_valid(form)
-        messages.success(self.request, f"Compra de '{purchase_name}' actualizada exitosamente.")
-        return response
-    
-    def form_invalid(self, form):
-        messages.error(self.request, "Hubo un error al actualizar el producto. Por favor, intente de nuevo.")
-        return self.render_to_response(self.get_context_data(form=form))
+
+    def get(self, request, pk):
+        purchase = get_object_or_404(Purchase, pk=pk)
+        items = purchase.items.all()
+        suppliers = Supplier.objects.all().order_by('name')
+        products = Products.objects.all().order_by('name')
+        
+        products_json = {}
+        for product in products:
+            products_json[product.id] = {
+                'id': product.id,
+                'name': product.name,
+                'cost': float(product.cost),
+            }
+        
+        context = {
+            'purchase': purchase,
+            'items': items,
+            'suppliers': suppliers,
+            'products': products,
+            'products_json': json.dumps(products_json),
+        }
+        return render(request, self.template_name, context)
+
+    def post(self, request, pk):
+        purchase = get_object_or_404(Purchase, pk=pk)
+        
+        try:
+            with transaction.atomic():
+                supplier_id = request.POST.get('supplier')
+                numero_comprobante = request.POST.get('numero_comprobante', '')
+                product_ids = request.POST.getlist('product[]')
+                costs = request.POST.getlist('cost[]')
+                qtys = request.POST.getlist('qty[]')
+
+                if not product_ids:
+                    messages.error(request, "Debe agregar al menos un producto.")
+                    return redirect('purchase:purchase_update', pk=pk)
+
+                supplier = Supplier.objects.get(id=supplier_id)
+                purchase.supplier = supplier
+                purchase.numero_comprobante = numero_comprobante
+
+                # Borrar items anteriores y recrear
+                purchase.items.all().delete()
+
+                total = Decimal(0)
+                for i in range(len(product_ids)):
+                    product = Products.objects.get(id=product_ids[i])
+                    cost = Decimal(costs[i])
+                    qty = Decimal(qtys[i])
+                    PurchaseProduct.objects.create(
+                        purchase=purchase,
+                        supplier=supplier,
+                        product=product,
+                        cost=cost,
+                        qty=qty
+                    )
+                    total += cost * qty
+
+                purchase.total = total
+                purchase.save()
+
+                messages.success(request, f"Compra #{purchase.id} actualizada. Total: AR$ {total:,.2f}")
+                return redirect('purchase:purchase_list')
+
+        except Exception as e:
+            messages.error(request, f"Error: {str(e)}")
+            return redirect('purchase:purchase_update', pk=pk)
 
 
 class PurchaseDelete(SuccessMessageMixin, PermissionRequiredMixin, generic.DeleteView):
