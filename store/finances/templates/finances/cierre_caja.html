@@ -1,16 +1,92 @@
 {% extends "base.html" %}
+{% load humanize %}
 {% block pageContent %}
+
 <div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
-    <div class="mdc-card p-4">
-        <h4 class="mb-3">📊 Cierre de Caja</h4>
-        <form method="post">
-            {% csrf_token %}
-            {{ form.as_p }}
-            <div class="mt-3">
-                <button type="submit" class="btn btn-success">Realizar Cierre</button>
-                <a href="{% url 'finances:dashboard' %}" class="btn btn-secondary">Cancelar</a>
-            </div>
-        </form>
+    <div class="mdc-card py-2">
+        <h4 class="card-title mb-0">📊 Cierre de Caja</h4>
     </div>
 </div>
-{% endblock %}
+
+<!-- Resumen del día -->
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-6">
+    <div class="mdc-card">
+        <div class="card-body">
+            <h5 class="card-title">Resumen del Día</h5>
+            <table class="table table-borderless">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th class="text-end">Efectivo</th>
+                        <th class="text-end">Banco</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="text-success">
+                        <td>💰 Ventas</td>
+                        <td class="text-end">AR$ {{ preview.ventas_efectivo|floatformat:2 }}</td>
+                        <td class="text-end">AR$ {{ preview.ventas_banco|floatformat:2 }}</td>
+                    </tr>
+                    <tr class="text-danger">
+                        <td>🛒 Compras</td>
+                        <td class="text-end">AR$ {{ preview.compras_efectivo|floatformat:2 }}</td>
+                        <td class="text-end">AR$ {{ preview.compras_banco|floatformat:2 }}</td>
+                    </tr>
+                    <tr class="text-danger">
+                        <td>💸 Retiros</td>
+                        <td class="text-end">AR$ {{ preview.retiros_efectivo|floatformat:2 }}</td>
+                        <td class="text-end">AR$ {{ preview.retiros_banco|floatformat:2 }}</td>
+                    </tr>
+                    <tr class="text-danger">
+                        <td>📋 Gastos</td>
+                        <td class="text-end">AR$ {{ preview.gastos_efectivo|floatformat:2 }}</td>
+                        <td class="text-end">AR$ {{ preview.gastos_banco|floatformat:2 }}</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold border-top">
+                        <td>Saldo esperado en caja</td>
+                        <td class="text-end text-primary">AR$ {{ preview.saldo_esperado|floatformat:2 }}</td>
+                        <td class="text-end text-primary">AR$ {{ caja.saldo_banco|floatformat:2 }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Formulario de cierre -->
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-6">
+    <div class="mdc-card">
+        <div class="card-body">
+            <h5 class="card-title">Registrar Cierre</h5>
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Fecha del Cierre</label>
+                    {{ form.fecha }}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Efectivo contado físicamente</label>
+                    <div class="input-group">
+                        <span class="input-group-text">AR$</span>
+                        {{ form.saldo_real_efectivo }}
+                    </div>
+                    <small class="text-muted">Contá el efectivo en caja y escribí el total</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Notas</label>
+                    {{ form.notas }}
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-success">
+                        <i class="mdi mdi-lock"></i> Realizar Cierre
+                    </button>
+                    <a href="{% url 'finances:dashboard' %}" class="btn btn-secondary">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock pageContent %}

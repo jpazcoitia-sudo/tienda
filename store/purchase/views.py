@@ -251,7 +251,7 @@ def purchase_pagar_view(request, pk):
         
         if monto_efectivo > 0:
             MovimientoCaja.objects.create(
-                tipo='egreso_efectivo',
+                tipo='compra_efectivo',
                 monto=monto_efectivo,
                 concepto=f'Pago compra #{purchase.id} - {purchase.supplier}',
                 afecta_efectivo=True,
@@ -262,7 +262,7 @@ def purchase_pagar_view(request, pk):
         
         if monto_banco > 0:
             MovimientoCaja.objects.create(
-                tipo='egreso_banco',
+                tipo='compra_banco',
                 monto=monto_banco,
                 concepto=f'Pago compra #{purchase.id} - {purchase.supplier}',
                 afecta_efectivo=False,

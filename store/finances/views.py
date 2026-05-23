@@ -418,6 +418,19 @@ def cierre_caja(request):
         messages.warning(request, f'Ya existe un cierre de caja para hoy ({hoy})')
         return redirect('finances:detalle_cierre', pk=cierre_existente.pk)
     
+    movimientos_hoy = MovimientoCaja.objects.filter(fecha__date=hoy)
+    preview = {
+            'ventas_efectivo': movimientos_hoy.filter(tipo='venta_efectivo').aggregate(t=Sum('monto'))['t'] or Decimal('0'),
+            'ventas_banco': movimientos_hoy.filter(tipo='venta_banco').aggregate(t=Sum('monto'))['t'] or Decimal('0'),
+            'compras_efectivo': movimientos_hoy.filter(tipo='compra_efectivo').aggregate(t=Sum('monto'))['t'] or Decimal('0'),
+            'compras_banco': movimientos_hoy.filter(tipo='compra_banco').aggregate(t=Sum('monto'))['t'] or Decimal('0'),
+            'retiros_efectivo': movimientos_hoy.filter(tipo='retiro_efectivo').aggregate(t=Sum('monto'))['t'] or Decimal('0'),
+            'retiros_banco': movimientos_hoy.filter(tipo='retiro_banco').aggregate(t=Sum('monto'))['t'] or Decimal('0'),
+            'gastos_efectivo': movimientos_hoy.filter(tipo='gasto', afecta_efectivo=True).aggregate(t=Sum('monto'))['t'] or Decimal('0'),
+            'gastos_banco': movimientos_hoy.filter(tipo='gasto', afecta_banco=True).aggregate(t=Sum('monto'))['t'] or Decimal('0'),
+            'saldo_esperado': caja.saldo_efectivo,
+        }
+
     if request.method == 'POST':
         form = CierreCajaForm(request.POST)
         if form.is_valid():
@@ -466,11 +479,12 @@ def cierre_caja(request):
     cierre_anterior = CierreCaja.objects.filter(fecha__lt=hoy).order_by('-fecha').first()
     
     context = {
-        'page_title': 'Cierre de Caja',
-        'form': form,
-        'caja': caja,
-        'cierre_anterior': cierre_anterior,
-    }
+            'page_title': 'Cierre de Caja',
+            'form': form,
+            'caja': caja,
+            'cierre_anterior': cierre_anterior,
+            'preview': preview,
+        }
     
     return render(request, 'finances/cierre_caja.html', context)
 
