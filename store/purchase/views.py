@@ -10,6 +10,7 @@ from django.utils.decorators import method_decorator
 from django.db import transaction
 import json
 from decimal import Decimal
+from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 
 from .models import Supplier, PurchaseProduct, Purchase
@@ -145,8 +146,13 @@ class PurchaseCreate(LoginRequiredMixin, PermissionRequiredMixin, generic.Templa
                 purchase.total = total
                 purchase.save()
                 
+                accion = request.POST.get('accion', 'guardar')
                 messages.success(request, f"Compra #{purchase.id} registrada exitosamente. Total: AR$ {total:,.2f}")
-                return redirect('purchase:purchase_list')
+
+                if accion == 'guardar_pagar':
+                    return redirect('purchase:purchase_pagar', pk=purchase.pk)
+                else:
+                    return redirect('purchase:purchase_list')
                 
         except Exception as e:
             messages.error(request, f"Error al registrar la compra: {str(e)}")
@@ -231,3 +237,48 @@ def marcar_compra_pagada(request, pk):
         return redirect('purchase:payment_list')
     
     return redirect('purchase:payment_list')
+
+def purchase_pagar_view(request, pk):
+    """Vista para registrar el pago de una compra recién creada"""
+    purchase = get_object_or_404(Purchase, pk=pk)
+    
+    if request.method == 'POST':
+        forma_pago = request.POST.get('forma_pago')
+        monto_efectivo = Decimal(request.POST.get('monto_efectivo', 0) or 0)
+        monto_banco = Decimal(request.POST.get('monto_banco', 0) or 0)
+        
+        from finances.models import MovimientoCaja
+        
+        if monto_efectivo > 0:
+            MovimientoCaja.objects.create(
+                tipo='egreso_efectivo',
+                monto=monto_efectivo,
+                concepto=f'Pago compra #{purchase.id} - {purchase.supplier}',
+                afecta_efectivo=True,
+                afecta_banco=False,
+                es_ingreso=False,
+                usuario=request.user
+            )
+        
+        if monto_banco > 0:
+            MovimientoCaja.objects.create(
+                tipo='egreso_banco',
+                monto=monto_banco,
+                concepto=f'Pago compra #{purchase.id} - {purchase.supplier}',
+                afecta_efectivo=False,
+                afecta_banco=True,
+                es_ingreso=False,
+                usuario=request.user
+            )
+        
+        purchase.forma_pago = forma_pago
+        purchase.fecha_pago = timezone.now()
+        purchase.save()
+        
+        messages.success(request, f"Pago registrado correctamente para compra #{purchase.id}.")
+        return redirect('purchase:purchase_list')
+    
+    context = {
+        'purchase': purchase,
+    }
+    return render(request, 'purchases/purchase_pagar.html', context)

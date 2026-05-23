@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block pageContent %}
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card py-2">
+        <div class="d-flex justify-content-between align-items-center">
+            <h4 class="card-title mb-0">Pagar Compra #{{ purchase.id }}</h4>
+        </div>
+    </div>
+</div>
+
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-6">
+    <div class="mdc-card">
+        <div class="card-body">
+
+            <!-- Resumen de la compra -->
+            <div class="alert alert-info mb-4">
+                <strong>Proveedor:</strong> {{ purchase.supplier }}<br>
+                {% if purchase.numero_comprobante %}
+                <strong>Comprobante:</strong> {{ purchase.numero_comprobante }}<br>
+                {% endif %}
+                <strong>Total a pagar:</strong> AR$ {{ purchase.total|floatformat:2 }}
+            </div>
+
+            <form method="POST">
+                {% csrf_token %}
+
+                <!-- Forma de pago -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Forma de Pago</label>
+                    <div class="d-flex gap-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="forma_pago" 
+                                   id="pago_efectivo" value="efectivo" checked>
+                            <label class="form-check-label" for="pago_efectivo">💵 Efectivo</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="forma_pago" 
+                                   id="pago_banco" value="banco">
+                            <label class="form-check-label" for="pago_banco">🏦 Banco</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="forma_pago" 
+                                   id="pago_mixto" value="mixto">
+                            <label class="form-check-label" for="pago_mixto">🔀 Mixto</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Monto efectivo -->
+                <div class="mb-3" id="campo_efectivo">
+                    <label class="form-label">Monto en Efectivo</label>
+                    <input type="number" name="monto_efectivo" id="monto_efectivo"
+                           class="form-control" step="any" min="0" 
+                           value="{{ purchase.total }}">
+                </div>
+
+                <!-- Monto banco (oculto por defecto) -->
+                <div class="mb-3 d-none" id="campo_banco">
+                    <label class="form-label">Monto por Banco</label>
+                    <input type="number" name="monto_banco" id="monto_banco"
+                           class="form-control" step="any" min="0" value="0">
+                </div>
+
+                <!-- Total verificación (solo en mixto) -->
+                <div class="alert alert-warning d-none" id="alerta_mixto">
+                    Total ingresado: <strong id="total_mixto">AR$ 0</strong> 
+                    / Total compra: <strong>AR$ {{ purchase.total|floatformat:2 }}</strong>
+                </div>
+
+                <div class="d-flex gap-2 mt-4">
+                    <a href="{% url 'purchase:purchase_list' %}" class="btn btn-secondary">
+                        Omitir pago
+                    </a>
+                    <button type="submit" class="btn btn-success">
+                        <i class="mdi mdi-cash"></i> Registrar Pago
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+$(function() {
+    var total = parseFloat("{{ purchase.total }}".replace(',', '.'));
+
+    function actualizarCampos() {
+        var forma = $('input[name="forma_pago"]:checked').val();
+        
+        if (forma === 'efectivo') {
+            $('#campo_efectivo').removeClass('d-none');
+            $('#campo_banco').addClass('d-none');
+            $('#alerta_mixto').addClass('d-none');
+            $('#monto_efectivo').val(total);
+            $('#monto_banco').val(0);
+        } else if (forma === 'banco') {
+            $('#campo_efectivo').addClass('d-none');
+            $('#campo_banco').removeClass('d-none');
+            $('#alerta_mixto').addClass('d-none');
+            $('#monto_banco').val(total);
+            $('#monto_efectivo').val(0);
+        } else { // mixto
+            $('#campo_efectivo').removeClass('d-none');
+            $('#campo_banco').removeClass('d-none');
+            $('#alerta_mixto').removeClass('d-none');
+            $('#monto_efectivo').val(total);
+            $('#monto_banco').val(0);
+        }
+        actualizarTotalMixto();
+    }
+
+    function actualizarTotalMixto() {
+        var efectivo = parseFloat($('#monto_efectivo').val()) || 0;
+        var banco = parseFloat($('#monto_banco').val()) || 0;
+        $('#total_mixto').text('AR$ ' + (efectivo + banco).toFixed(2));
+    }
+
+    $('input[name="forma_pago"]').on('change', actualizarCampos);
+    $('#monto_efectivo, #monto_banco').on('input', actualizarTotalMixto);
+
+    // Inicializar
+    actualizarCampos();
+});
+</script>
+
+{% endblock pageContent %}

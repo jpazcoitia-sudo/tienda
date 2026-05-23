@@ -83,8 +83,7 @@
 {% block ScriptBlock %}
 <script>
 function pagarCompra(pk) {
-  $('#formPagar').attr('action', '/purchase/pagar/' + pk + '/');
-  $('#pagarModal').modal('show');
+  window.location.href = '/purchase/purchase/' + pk + '/pagar/';
 }
 </script>
 {% endblock %}

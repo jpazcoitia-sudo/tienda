@@ -120,8 +120,11 @@
                             <a href="{% url 'purchase:purchase_list' %}" class="btn btn-secondary">
                                 Volver a la lista de compras
                             </a>
-                            <button type="submit" class="btn btn-success" id="submit-btn">
-                                Guardar Compra
+                            <button type="submit" name="accion" value="guardar" class="btn btn-success" id="submit-btn">
+                                <i class="mdi mdi-content-save"></i> Guardar Compra
+                            </button>
+                            <button type="submit" name="accion" value="guardar_pagar" class="btn btn-primary" id="submit-pagar-btn">
+                                <i class="mdi mdi-cash"></i> Guardar y Pagar
                             </button>
                         </div>
                     </div>
