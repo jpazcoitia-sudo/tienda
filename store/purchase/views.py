@@ -271,12 +271,10 @@ def purchase_pagar_view(request, pk):
                 usuario=request.user
             )
         
-        purchase.forma_pago = forma_pago
-        purchase.fecha_pago = timezone.now()
-        purchase.save()
-        
+        purchase.marcar_como_pagado(forma_pago=forma_pago)
+                
         messages.success(request, f"Pago registrado correctamente para compra #{purchase.id}.")
-        return redirect('purchase:purchase_list')
+        return redirect('purchase:payment_list')
     
     context = {
         'purchase': purchase,
