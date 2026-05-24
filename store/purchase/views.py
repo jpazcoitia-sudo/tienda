@@ -105,55 +105,73 @@ class PurchaseCreate(LoginRequiredMixin, PermissionRequiredMixin, generic.Templa
     def post(self, request, *args, **kwargs):
         try:
             with transaction.atomic():
-                # Obtener datos del formulario
                 supplier_id = request.POST.get('supplier')
                 numero_comprobante = request.POST.get('numero_comprobante', '')
-                
-                # Obtener productos del carrito
                 product_ids = request.POST.getlist('product[]')
                 costs = request.POST.getlist('cost[]')
                 qtys = request.POST.getlist('qty[]')
                 
+                # IVA y Percepción como montos fijos
+                iva_monto = Decimal(request.POST.get('iva_pct', 0) or 0)
+                perc_monto = Decimal(request.POST.get('perc_pct', 0) or 0)
+                
                 if not product_ids:
                     messages.error(request, "Debe agregar al menos un producto.")
                     return redirect('purchase:purchase_create')
-                
-                # Crear Purchase (cabecera)
+
                 supplier = Supplier.objects.get(id=supplier_id)
                 purchase = Purchase.objects.create(
                     supplier=supplier,
                     numero_comprobante=numero_comprobante
                 )
-                
-                # Crear PurchaseProduct (detalles) para cada producto
-                total = Decimal(0)
+
+                # Calcular subtotal para distribuir IVA y Percepción
+                subtotal = Decimal(0)
+                items_data = []
                 for i in range(len(product_ids)):
-                    product = Products.objects.get(id=product_ids[i])
                     cost = Decimal(costs[i])
                     qty = Decimal(qtys[i])
-                    
+                    subtotal += cost * qty
+                    items_data.append({
+                        'product_id': product_ids[i],
+                        'cost': cost,
+                        'qty': qty
+                    })
+
+                # Distribuir IVA y Percepción proporcionalmente
+                total_impuestos = iva_monto + perc_monto
+                total = Decimal(0)
+
+                for item in items_data:
+                    linea = item['cost'] * item['qty']
+                    proporcion = linea / subtotal if subtotal > 0 else Decimal(0)
+                    impuesto_linea = total_impuestos * proporcion
+                    costo_final = item['cost'] + (impuesto_linea / item['qty'])
+
+                    product = Products.objects.get(id=item['product_id'])
                     PurchaseProduct.objects.create(
                         purchase=purchase,
                         supplier=supplier,
                         product=product,
-                        cost=cost,
-                        qty=qty
+                        cost=costo_final.quantize(Decimal('0.0001')),
+                        qty=item['qty']
                     )
-                    
-                    total += cost * qty
-                
-                # Actualizar total de la compra
+                    total += costo_final * item['qty']
+
                 purchase.total = total
+                purchase.subtotal_productos = subtotal  # ← el subtotal SIN impuestos
+                purchase.iva_monto = iva_monto
+                purchase.perc_monto = perc_monto
                 purchase.save()
                 
                 accion = request.POST.get('accion', 'guardar')
-                messages.success(request, f"Compra #{purchase.id} registrada exitosamente. Total: AR$ {total:,.2f}")
+                messages.success(request, f"Compra #{purchase.id} registrada. Total: AR$ {total:,.2f}")
 
                 if accion == 'guardar_pagar':
                     return redirect('purchase:purchase_pagar', pk=purchase.pk)
                 else:
                     return redirect('purchase:purchase_list')
-                
+
         except Exception as e:
             messages.error(request, f"Error al registrar la compra: {str(e)}")
             return redirect('purchase:purchase_create')

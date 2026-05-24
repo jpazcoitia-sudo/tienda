@@ -66,11 +66,18 @@
                                        step="0.01" id="product-cost" value="0">
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
+                            <div class="form-group mb-3">
+                                <label for="product-desc">Desc %</label>
+                                <input type="number" class="form-control form-control-sm text-center" 
+                                    step="0.01" id="product-desc" value="0" min="0" max="100">
+                            </div>
+                        </div>
+                        <div class="col-md-2">
                             <div class="form-group mb-3">
                                 <label for="product-qty">Cantidad</label>
                                 <input type="number" class="form-control form-control-sm text-center" 
-                                       step="1" id="product-qty" value="1">
+                                    step="1" id="product-qty" value="1">
                             </div>
                         </div>
                         <div class="col-md-2">
@@ -92,10 +99,11 @@
                             <thead class="bg-dark bg-gradient bg-opacity-50 text-light">
                                 <tr>
                                     <th class="text-center" width="5%"></th>
-                                    <th class="text-center" width="40%">Producto</th>
-                                    <th class="text-center" width="15%">Costo Unit.</th>
-                                    <th class="text-center" width="15%">Cantidad</th>
-                                    <th class="text-center" width="25%">Subtotal</th>
+                                    <th class="text-center" width="30%">Producto</th>
+                                    <th class="text-center" width="12%">Costo Unit.</th>
+                                    <th class="text-center" width="10%">Desc %</th>
+                                    <th class="text-center" width="13%">Cantidad</th>
+                                    <th class="text-center" width="20%">Subtotal</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -112,6 +120,52 @@
                 </fieldset>
 
                 <hr>
+
+                <!-- IVA y Percepción -->
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">IVA (AR$)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" id="iva-pct" class="form-control text-end" 
+                                step="0.01" min="0" value="0" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Percepción IVA (AR$)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" id="perc-pct" class="form-control text-end" 
+                                step="0.01" min="0" value="0" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Resumen</label>
+                        <div class="p-2 bg-light rounded">
+                            <div class="d-flex justify-content-between">
+                                <span>Subtotal productos:</span>
+                                <span id="resumen-subtotal">AR$ 0.00</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>IVA:</span>
+                                <span id="resumen-iva">AR$ 0.00</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>Percepción:</span>
+                                <span id="resumen-perc">AR$ 0.00</span>
+                            </div>
+                            <hr class="my-1">
+                            <div class="d-flex justify-content-between fw-bold">
+                                <span>Total final:</span>
+                                <span id="resumen-total">AR$ 0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Campos hidden para enviar al backend -->
+                <input type="hidden" name="iva_pct" id="iva-pct-hidden">
+                <input type="hidden" name="perc_pct" id="perc-pct-hidden">
 
                 <!-- Botones -->
                 <div class="form-group row mt-3">
@@ -144,11 +198,13 @@
         </td>
         <td class="product-name"></td>
         <td class="text-end product-cost"></td>
+        <td class="text-end product-desc"></td>
         <td class="text-center">
             <input type="number" name="qty[]" class="form-control form-control-sm text-center qty-input" 
                    min="1" step="1" value="1">
             <input type="hidden" name="product[]" class="product-id">
             <input type="hidden" name="cost[]" class="cost-value">
+            <input type="hidden" name="desc[]" class="desc-value">
         </td>
         <td class="text-end product-subtotal"></td>
     </tr>
@@ -165,20 +221,56 @@
     }
 
     function calculateTotal() {
-        let total = 0;
-        $('#products-table tbody tr').each(function() {
-            let cost = parseFloat($(this).find('.cost-value').val()) || 0;
-            let qty = parseFloat($(this).find('.qty-input').val()) || 0;
-            let subtotal = cost * qty;
-            
-            $(this).find('.product-subtotal').text(formatMoney(subtotal));
-            total += subtotal;
-        });
-        
-        $('#grand-total').text(formatMoney(total));
-    }
+            let subtotal = 0;
+            $('#products-table tbody tr').each(function() {
+                let cost = parseFloat($(this).find('.cost-value').val()) || 0;
+                let qty = parseFloat($(this).find('.qty-input').val()) || 0;
+                let lineTotal = cost * qty;
+                $(this).find('.product-subtotal').text(formatMoney(lineTotal));
+                subtotal += lineTotal;
+            });
+
+            let ivaPct = parseFloat($('#iva-pct').val()) || 0;
+            let percPct = parseFloat($('#perc-pct').val()) || 0;
+
+            let ivaAmt = ivaPct;   // Ya es monto directo
+            let percAmt = percPct; // Ya es monto directo
+            let total = subtotal + ivaAmt + percAmt;
+
+            $('#resumen-subtotal').text(formatMoney(subtotal));
+            $('#resumen-iva').text(formatMoney(ivaAmt));
+            $('#resumen-perc').text(formatMoney(percAmt));
+            $('#resumen-total').text(formatMoney(total));
+
+            // Actualizar campos hidden
+            $('#iva-pct-hidden').val(ivaPct);
+            $('#perc-pct-hidden').val(percPct);
+
+            $('#grand-total').text(formatMoney(total));
+        }
 
     $(function() {
+
+        $('#iva-pct, #perc-pct').on('focus', function() {
+            if ($(this).val() == '0') $(this).val('');
+        });
+        $('#iva-pct, #perc-pct').on('blur', function() {
+            if ($(this).val() == '') $(this).val('0');
+        });
+
+        // Eliminar producto de la tabla
+        $(document).on('click', '.remove-item', function() {
+            $(this).closest('tr').remove();
+            calculateTotal();
+        });
+
+        $('#product-desc').on('focus', function() {
+            if ($(this).val() == '0') $(this).val('');
+        });
+        $('#product-desc').on('blur', function() {
+            if ($(this).val() == '') $(this).val('0');
+        });
+
         // Inicializar Select2
         $('#product-id').select2({
             placeholder: "Seleccione un producto",
@@ -188,6 +280,11 @@
         $('#supplier').select2({
             placeholder: "Seleccione un proveedor",
             width: '100%'
+        });
+
+        // Recalcular cuando cambian IVA o Percepción
+        $('#iva-pct, #perc-pct').on('input', function() {
+            calculateTotal();
         });
 
         // Auto-rellenar costo cuando seleccionas producto
@@ -202,6 +299,7 @@
         $('#add_item').click(function() {
             let productId = $('#product-id').val();
             let cost = parseFloat($('#product-cost').val());
+            let desc = parseFloat($('#product-desc').val()) || 0;
             let qty = parseFloat($('#product-qty').val());
 
             if (!productId || !cost || !qty) {
@@ -214,17 +312,8 @@
                 return;
             }
 
-            // Verificar si el producto ya está en la tabla
-            let exists = false;
-            $('#products-table tbody tr').each(function() {
-                if ($(this).find('.product-id').val() == productId) {
-                    exists = true;
-                    alert('Este producto ya está en la lista.');
-                    return false;
-                }
-            });
-
-            if (exists) return;
+            // Costo con descuento aplicado
+            let costConDesc = cost * (1 - desc / 100);
 
             // Obtener datos del producto
             let product = prod_arr[productId];
@@ -236,8 +325,10 @@
             // Llenar datos
             row.find('.product-name').text(product.name);
             row.find('.product-cost').text(formatMoney(cost));
+            row.find('.product-desc').text(desc > 0 ? desc + '%' : '-');
             row.find('.product-id').val(productId);
-            row.find('.cost-value').val(cost);
+            row.find('.cost-value').val(costConDesc.toFixed(4));
+            row.find('.desc-value').val(desc);
             row.find('.qty-input').val(qty);
             
             // Agregar a la tabla
@@ -246,22 +337,11 @@
             // Limpiar formulario
             $('#product-id').val('').trigger('change');
             $('#product-cost').val(0);
+            $('#product-desc').val(0);
             $('#product-qty').val(1);
             
             // Calcular totales
             calculateTotal();
-            
-            // Event listeners en la nueva fila
-            $('#products-table tbody tr:last .qty-input').on('input', function() {
-                calculateTotal();
-            });
-            
-            $('#products-table tbody tr:last .remove-item').on('click', function() {
-                if (confirm('¿Eliminar este producto de la compra?')) {
-                    $(this).closest('tr').remove();
-                    calculateTotal();
-                }
-            });
         });
 
         // Validar antes de enviar

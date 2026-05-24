@@ -108,6 +108,32 @@
                     </table>
                 </div>
 
+                <!-- Resumen IVA y Percepción -->
+                {% if purchase.iva_monto or purchase.perc_monto %}
+                <div class="row mb-3 mt-2">
+                    <div class="col-md-6 offset-md-6">
+                        <div class="p-2 bg-light rounded">
+                            <div class="d-flex justify-content-between">
+                                <span>Subtotal productos:</span>
+                                <span>AR$ {{ purchase.subtotal_productos|floatformat:2 }}</span>
+                            </div>
+                            {% if purchase.iva_monto %}
+                            <div class="d-flex justify-content-between">
+                                <span>IVA:</span>
+                                <span>AR$ {{ purchase.iva_monto|floatformat:2 }}</span>
+                            </div>
+                            {% endif %}
+                            {% if purchase.perc_monto %}
+                            <div class="d-flex justify-content-between">
+                                <span>Percepción:</span>
+                                <span>AR$ {{ purchase.perc_monto|floatformat:2 }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
                 <div class="d-flex gap-2">
                     <a href="{% url 'purchase:purchase_list' %}" class="btn btn-secondary">Volver</a>
                     <button type="submit" class="btn btn-success">

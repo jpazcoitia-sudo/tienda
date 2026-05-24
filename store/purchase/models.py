@@ -24,6 +24,9 @@ class Purchase(models.Model):
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True)
     numero_comprobante = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número de Comprobante")
     total = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    subtotal_productos = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Subtotal sin impuestos")
+    iva_monto = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="IVA")
+    perc_monto = models.DecimalField(max_digits=18, decimal_places=2, default=0, verbose_name="Percepción IVA")
     date_added = models.DateTimeField(default=timezone.now)
     date_updated = models.DateTimeField(auto_now=True)
     
