@@ -26,6 +26,10 @@
                     <input class="form-check-input" type="radio" name="forma_pago_checkout" id="pago_transferencia" value="transferencia">
                     <label class="form-check-label" for="pago_transferencia">🏦 Transferencia</label>
                 </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="forma_pago_checkout" id="pago_mixto" value="mixto">
+                    <label class="form-check-label" for="pago_mixto">🔀 Mixto</label>
+                </div>
             </div>
         </div>
 
@@ -43,9 +47,10 @@
         {% endif %}
 
         <div id="campos-pago">
-            <div class="form-group mb-3">
+            <!-- Campo efectivo (siempre visible salvo cuenta corriente) -->
+            <div class="form-group mb-3" id="campo-efectivo">
                 <div class="d-flex justify-content-between align-items-center">
-                    <label for="tendered_amount" class="control-label">Monto recibido</label>
+                    <label for="tendered_amount" class="control-label" id="label-monto-recibido">Monto recibido</label>
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="monto_exacto">
                         <label class="form-check-label small" for="monto_exacto">Monto exacto</label>
@@ -53,6 +58,19 @@
                 </div>
                 <input type="text" inputmode="decimal" id="tendered_amount" class="form-control form-control-lg rounded-0 text-end" value="" placeholder="0.00">
             </div>
+
+            <!-- Campo transferencia (solo visible en Mixto) -->
+            <div class="form-group mb-3 d-none" id="campo-transferencia">
+                <label class="control-label">Monto Transferencia</label>
+                <input type="text" inputmode="decimal" id="tendered_transferencia" class="form-control form-control-lg rounded-0 text-end" value="0" placeholder="0.00">
+            </div>
+
+            <!-- Verificación mixto -->
+            <div class="alert alert-warning d-none mb-2" id="alerta-mixto">
+                Total ingresado: <strong id="total-mixto">AR$ 0</strong> / 
+                Total a pagar: <strong id="total-pagar-ref"></strong>
+            </div>
+
             <div class="form-group mb-3">
                 <label for="payment_change" class="control-label">Cambio/Vuelto</label>
                 <input type="text" id="payment_change" class="form-control form-control-lg rounded-0 text-end" value="0.00" disabled>
@@ -70,49 +88,84 @@
     }
 
     $(function() {
-        // Bloquear botón Guardar hasta que haya monto o cuenta corriente
+        var payableAmount = cleanNumber($('#payable_amount').val());
+        $('#payable_amount').val(formatNumber(payableAmount));
+        $('#total-pagar-ref').text('AR$ ' + formatNumber(payableAmount));
+
+        function esMixto() {
+            return $('input[name="forma_pago_checkout"]:checked').val() === 'mixto';
+        }
+
         function verificarHabilitacion() {
-            var monto = cleanNumber($('#tendered_amount').val());
             var cuentaCorriente = $('#cuenta_corriente').is(':checked');
-              
-            if (monto > 0 || cuentaCorriente) {
+            if (cuentaCorriente) {
                 $('#submit').prop('disabled', false);
+                return;
+            }
+
+            if (esMixto()) {
+                var efectivo = cleanNumber($('#tendered_amount').val());
+                var transferencia = cleanNumber($('#tendered_transferencia').val());
+                var total = efectivo + transferencia;
+                $('#submit').prop('disabled', total < payableAmount);
             } else {
-                $('#submit').prop('disabled', true);
+                var monto = cleanNumber($('#tendered_amount').val());
+                $('#submit').prop('disabled', monto <= 0);
             }
         }
 
-        // Deshabilitar al cargar
-        $('#submit').prop('disabled', true);
+        function actualizarMixto() {
+            var efectivo = cleanNumber($('#tendered_amount').val());
+            var transferencia = cleanNumber($('#tendered_transferencia').val());
+            var total = efectivo + transferencia;
+            var change = efectivo - payableAmount;
 
-        // Check monto exacto  ← AGREGAR ACÁ
+            $('#total-mixto').text('AR$ ' + formatNumber(total));
+            $('#payment_change').val(formatNumber(Math.max(0, change)));
+            $('[name="amount_change"]').val(Math.max(0, change).toFixed(2));
+            $('[name="tendered_amount"]').val(efectivo);
+            verificarHabilitacion();
+        }
+
+        // Cambio en forma de pago
+        $('input[name="forma_pago_checkout"]').on('change', function() {
+            var forma = $(this).val();
+            if (forma === 'mixto') {
+                $('#campo-transferencia').removeClass('d-none');
+                $('#alerta-mixto').removeClass('d-none');
+                $('#label-monto-recibido').text('Monto Efectivo');
+                $('#tendered_amount').val('');
+                $('#tendered_transferencia').val('');
+            } else {
+                $('#campo-transferencia').addClass('d-none');
+                $('#alerta-mixto').addClass('d-none');
+                $('#label-monto-recibido').text('Monto recibido');
+                $('#tendered_transferencia').val(0);
+                if (forma === 'efectivo' || forma === 'transferencia') {
+                    $('#tendered_amount').val('');
+                }
+            }
+            $('#monto_exacto').prop('checked', false);
+            verificarHabilitacion();
+        });
+
+        // Monto exacto
         $('#monto_exacto').on('change', function() {
             if ($(this).is(':checked')) {
-                var payable = cleanNumber($('#payable_amount').val());
-                $('#tendered_amount').val(payable);
-                // Actualizar vuelto a 0
+                $('#tendered_amount').val(payableAmount);
                 $('#payment_change').val(formatNumber(0));
                 $('[name="amount_change"]').val('0.00');
-                $('[name="tendered_amount"]').val(payable);
+                $('[name="tendered_amount"]').val(payableAmount);
             } else {
                 $('#tendered_amount').val('');
                 $('#payment_change').val(formatNumber(0));
                 $('[name="amount_change"]').val('0.00');
                 $('[name="tendered_amount"]').val(0);
             }
-            setTimeout(function() {
-                verificarHabilitacion();
-            }, 50);
-        });
-        
-        $('#cuenta_corriente').on('change', function() {
-            verificarHabilitacion();
+            setTimeout(verificarHabilitacion, 50);
         });
 
-        var payableAmount = cleanNumber($('#payable_amount').val());
-        $('#payable_amount').val(formatNumber(payableAmount));
-        
-        // Mostrar/ocultar campos de pago según cuenta corriente
+        // Cuenta corriente
         $('#cuenta_corriente').on('change', function() {
             if ($(this).is(':checked')) {
                 $('#campos-pago').hide();
@@ -121,44 +174,62 @@
             } else {
                 $('#campos-pago').show();
             }
+            verificarHabilitacion();
         });
 
-        $('#tendered_amount').on('focus', function() {
-            $(this).select();
+        // Inputs de monto
+        $('#tendered_amount').on('input', function() {
+            if (esMixto()) {
+                actualizarMixto();
+            } else {
+                var tenderedAmount = cleanNumber($(this).val());
+                var change = tenderedAmount - payableAmount;
+                $('[name="tendered_amount"]').val(tenderedAmount);
+                $('#payment_change').val(formatNumber(change));
+                $('[name="amount_change"]').val(change.toFixed(2));
+                verificarHabilitacion();
+            }
         });
-        
-        $('#tendered_amount').on('input keypress keyup keydown', function() {
-            var tenderedAmount = cleanNumber($('#tendered_amount').val());
-            var payable = cleanNumber($('#payable_amount').val());
-            $('[name="tendered_amount"]').val(tenderedAmount);
-            var change = tenderedAmount - payable;
-            $('#payment_change').val(formatNumber(change));
-            $('[name="amount_change"]').val(change.toFixed(2));
-            verificarHabilitacion();  // ← AGREGAR ESTA LÍNEA
+
+        $('#tendered_transferencia').on('input', function() {
+            actualizarMixto();
         });
-        
+
+        // Deshabilitar al cargar
+        $('#submit').prop('disabled', true);
+
+        // Submit
         $('#checkout-form').submit(function(e) {
             e.preventDefault();
 
-            // Guardar forma de pago
             var formaPago = $('input[name="forma_pago_checkout"]:checked').val();
-            $('[name="forma_pago"]').val(formaPago);
 
-            // Si es cuenta corriente, no validar monto
             if ($('#cuenta_corriente').is(':checked')) {
                 $('#cuenta_corriente_hidden').val('1');
-                $('#forma_pago_hidden').val($('input[name="forma_pago_checkout"]:checked').val());
+                $('#forma_pago_hidden').val(formaPago);
                 $('#pos-form').submit();
                 return;
             }
 
-            var change = parseFloat($('[name="amount_change"]').val());
-            if (change < 0) {
-                alert("Monto recibido es menor al Monto a pagar.");
-                return false;
+            if (esMixto()) {
+                var efectivo = cleanNumber($('#tendered_amount').val());
+                var transferencia = cleanNumber($('#tendered_transferencia').val());
+                var total = efectivo + transferencia;
+                if (total < payableAmount) {
+                    alert("El total ingresado es menor al monto a pagar.");
+                    return false;
+                }
+                // Guardar monto transferencia en campo hidden
+                $('[name="monto_transferencia"]').val(transferencia);
+            } else {
+                var change = parseFloat($('[name="amount_change"]').val());
+                if (change < 0) {
+                    alert("Monto recibido es menor al Monto a pagar.");
+                    return false;
+                }
             }
-            
-            $('#forma_pago_hidden').val($('input[name="forma_pago_checkout"]:checked').val());
+
+            $('#forma_pago_hidden').val(formaPago);
             $('#cuenta_corriente_hidden').val('0');
             $('#pos-form').submit();
         });

@@ -89,7 +89,7 @@ def save_pos(request):
         
         tipo_lista = data.get('tipo_lista', 'minorista')
         forma_pago = data.get('forma_pago', 'efectivo')
-        # NUEVO: Obtener pedido_id si viene de conversión
+        monto_transferencia = Decimal(data.get('monto_transferencia', 0) or 0)
         pedido_id = data.get('pedido_id', None)
         
         sales = Sales(
@@ -111,6 +111,7 @@ def save_pos(request):
         MovimientoCaja.crear_desde_venta(
             venta=sales,
             forma_pago=forma_pago,
+            monto_transferencia=monto_transferencia,
             usuario=request.user
         )
 

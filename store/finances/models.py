@@ -224,15 +224,48 @@ class MovimientoCaja(models.Model):
         super().delete(*args, **kwargs)
     
     @classmethod
-    def crear_desde_venta(cls, venta, forma_pago, usuario=None):
+    def crear_desde_venta(cls, venta, forma_pago, monto_transferencia=0, usuario=None):
         """Crea un movimiento desde una venta"""
         from django.db import transaction
         
         with transaction.atomic():
             caja = Caja.get_instance()
             
-            if forma_pago == 'efectivo':
-                mov = cls.objects.create(
+            if forma_pago == 'mixto':
+                monto_transferencia = Decimal(str(monto_transferencia))
+                monto_efectivo = Decimal(str(venta.grand_total)) - monto_transferencia
+                
+                # Movimiento efectivo
+                cls.objects.create(
+                    tipo='venta_efectivo',
+                    monto=monto_efectivo,
+                    concepto=f"Venta {venta.code} (Efectivo - pago mixto)",
+                    fecha=timezone.now(),
+                    venta=venta,
+                    afecta_efectivo=True,
+                    afecta_banco=False,
+                    es_ingreso=True,
+                    usuario=usuario
+                )
+                caja.saldo_efectivo += monto_efectivo
+                
+                # Movimiento banco
+                cls.objects.create(
+                    tipo='venta_banco',
+                    monto=monto_transferencia,
+                    concepto=f"Venta {venta.code} (Transferencia - pago mixto)",
+                    fecha=timezone.now(),
+                    venta=venta,
+                    afecta_efectivo=False,
+                    afecta_banco=True,
+                    es_ingreso=True,
+                    usuario=usuario
+                )
+                caja.saldo_banco += monto_transferencia
+                caja.save()
+                
+            elif forma_pago == 'efectivo':
+                cls.objects.create(
                     tipo='venta_efectivo',
                     monto=Decimal(str(venta.grand_total)),
                     concepto=f"Venta {venta.code}",
@@ -243,12 +276,11 @@ class MovimientoCaja(models.Model):
                     es_ingreso=True,
                     usuario=usuario
                 )
-                # Actualizar saldo manualmente
                 caja.saldo_efectivo += Decimal(str(venta.grand_total))
                 caja.save()
-                return mov
-            else:  # banco
-                mov = cls.objects.create(
+                
+            else:  # banco/transferencia
+                cls.objects.create(
                     tipo='venta_banco',
                     monto=Decimal(str(venta.grand_total)),
                     concepto=f"Venta {venta.code} (Banco/Transferencia)",
@@ -259,10 +291,8 @@ class MovimientoCaja(models.Model):
                     es_ingreso=True,
                     usuario=usuario
                 )
-                # Actualizar saldo manualmente
                 caja.saldo_banco += Decimal(str(venta.grand_total))
                 caja.save()
-                return mov
     
     @classmethod
     def crear_desde_compra(cls, compra, forma_pago, usuario=None):
