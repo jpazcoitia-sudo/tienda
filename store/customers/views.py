@@ -204,6 +204,37 @@ def registrar_pago(request, pk):
             forma_pago=forma_pago,
             notas=notas
         )
+
+        # Registrar movimiento de caja
+        from finances.models import MovimientoCaja, Caja
+        from decimal import Decimal
+        monto_decimal = Decimal(str(monto))
+        caja = Caja.get_instance()
+        
+        if forma_pago == 'efectivo':
+            MovimientoCaja.objects.create(
+                tipo='venta_efectivo',
+                monto=monto_decimal,
+                concepto=f'Pago cuenta corriente - {cliente.name}',
+                afecta_efectivo=True,
+                afecta_banco=False,
+                es_ingreso=True,
+                usuario=request.user
+            )
+            caja.saldo_efectivo += monto_decimal
+        else:
+            MovimientoCaja.objects.create(
+                tipo='venta_banco',
+                monto=monto_decimal,
+                concepto=f'Pago cuenta corriente - {cliente.name}',
+                afecta_efectivo=False,
+                afecta_banco=True,
+                es_ingreso=True,
+                usuario=request.user
+            )
+            caja.saldo_banco += monto_decimal
+        caja.save()
+
         messages.success(request, f"Pago de AR$ {monto} registrado para {cliente.name}.")
     
     return redirect('customers:customer_detail', pk=pk)

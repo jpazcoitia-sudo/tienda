@@ -443,12 +443,17 @@ def cierre_caja(request):
             ).order_by('-fecha').first()
             
             if cierre_anterior:
-                cierre.saldo_inicial_efectivo = cierre_anterior.saldo_esperado_efectivo
+                cierre.saldo_inicial_efectivo = cierre_anterior.saldo_real_efectivo
                 cierre.saldo_inicial_banco = cierre_anterior.saldo_esperado_banco
             else:
-                # Primer cierre, usar saldos actuales menos movimientos de hoy
-                cierre.saldo_inicial_efectivo = Decimal('0')
-                cierre.saldo_inicial_banco = Decimal('0')
+                # Primer cierre: calcular saldo inicial restando movimientos de hoy
+                movs_hoy = MovimientoCaja.objects.filter(fecha__date=hoy)
+                ing_ef = movs_hoy.filter(afecta_efectivo=True, es_ingreso=True).aggregate(t=Sum('monto'))['t'] or Decimal('0')
+                egr_ef = movs_hoy.filter(afecta_efectivo=True, es_ingreso=False).aggregate(t=Sum('monto'))['t'] or Decimal('0')
+                ing_banco = movs_hoy.filter(afecta_banco=True, es_ingreso=True).aggregate(t=Sum('monto'))['t'] or Decimal('0')
+                egr_banco = movs_hoy.filter(afecta_banco=True, es_ingreso=False).aggregate(t=Sum('monto'))['t'] or Decimal('0')
+                cierre.saldo_inicial_efectivo = caja.saldo_efectivo - ing_ef + egr_ef
+                cierre.saldo_inicial_banco = caja.saldo_banco - ing_banco + egr_banco
             
             # Calcular totales del día
             cierre.calcular_totales()

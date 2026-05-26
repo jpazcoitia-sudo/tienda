@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block pageContent %}
+
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card py-2">
+        <div class="d-flex justify-content-between align-items-center">
+            <h4 class="card-title mb-0">Historial de Cierres de Caja</h4>
+            <a href="{% url 'finances:cierre_caja' %}" class="btn btn-success btn-sm">
+                <i class="mdi mdi-lock"></i> Nuevo Cierre
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card">
+        <div class="card-body">
+            {% if cierres %}
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th class="text-end">Saldo Esperado</th>
+                        <th class="text-end">Saldo Real</th>
+                        <th class="text-end">Diferencia</th>
+                        <th>Cerrado por</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cierre in cierres %}
+                    <tr>
+                        <td>{{ cierre.fecha|date:"d/m/Y" }}</td>
+                        <td class="text-end">AR$ {{ cierre.saldo_esperado_efectivo|floatformat:2 }}</td>
+                        <td class="text-end">AR$ {{ cierre.saldo_real_efectivo|floatformat:2 }}</td>
+                        <td class="text-end {% if cierre.diferencia_efectivo < 0 %}text-danger{% elif cierre.diferencia_efectivo > 0 %}text-warning{% else %}text-success{% endif %}">
+                            AR$ {{ cierre.diferencia_efectivo|floatformat:2 }}
+                        </td>
+                        <td>{{ cierre.cerrado_por|default:"-" }}</td>
+                        <td>
+                            <a href="{% url 'finances:detalle_cierre' cierre.pk %}" class="btn btn-sm btn-info">
+                                <i class="mdi mdi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-muted">No hay cierres registrados.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endblock pageContent %}

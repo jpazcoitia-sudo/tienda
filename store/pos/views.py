@@ -107,13 +107,15 @@ def save_pos(request):
         
         sales.save()
 
-        from finances.models import MovimientoCaja
-        MovimientoCaja.crear_desde_venta(
-            venta=sales,
-            forma_pago=forma_pago,
-            monto_transferencia=monto_transferencia,
-            usuario=request.user
-        )
+        cuenta_corriente = data.get('cuenta_corriente', '0')
+        if cuenta_corriente != '1':
+            from finances.models import MovimientoCaja
+            MovimientoCaja.crear_desde_venta(
+                venta=sales,
+                forma_pago=forma_pago,
+                monto_transferencia=monto_transferencia,
+                usuario=request.user
+            )
 
         sale_id = sales.pk
         i = 0
@@ -149,7 +151,6 @@ def save_pos(request):
         resp['sale'] = sale_id
         
         # Registrar en cuenta corriente si corresponde
-        cuenta_corriente = data.get('cuenta_corriente', '0')
         if cliente and cuenta_corriente == '1':
             from customers.models import MovimientoCuentaCorriente
             MovimientoCuentaCorriente.objects.create(
@@ -307,6 +308,24 @@ def delete_sale(request):
     try:
         sale = Sales.objects.get(id=id)
         with transaction.atomic():
+            # Revertir movimientos de caja
+            from finances.models import MovimientoCaja, Caja
+            movimientos = MovimientoCaja.objects.filter(venta=sale)
+            caja = Caja.get_instance()
+            for mov in movimientos:
+                if mov.afecta_efectivo:
+                    if mov.es_ingreso:
+                        caja.saldo_efectivo -= mov.monto
+                    else:
+                        caja.saldo_efectivo += mov.monto
+                if mov.afecta_banco:
+                    if mov.es_ingreso:
+                        caja.saldo_banco -= mov.monto
+                    else:
+                        caja.saldo_banco += mov.monto
+            caja.save()
+            movimientos.delete()
+
             for item in sale.salesitems_set.all():
                 item.delete()
             sale.delete()
