@@ -72,14 +72,16 @@
             <table class="table table-hover table-sm" id="tabla-productos">
                 <thead class="table-dark">
                     <tr>
-                        <th style="width: 25%">PRODUCTO</th>
-                        <th style="width: 12%">COSTO</th>
-                        <th style="width: 10%">% MINOR.</th>
-                        <th style="width: 10%">% MAYOR.</th>
-                        <th style="width: 12%">P. MINOR.</th>
-                        <th style="width: 12%">P. MAYOR.</th>
-                        <th style="width: 8%">STOCK</th>
-                        <th style="width: 11%">CATEGORÍA</th>
+                        <th style="width: 22%">PRODUCTO</th>
+                        <th style="width: 11%">COSTO FAC.</th>
+                        <th style="width: 6%">IVA 21%</th>
+                        <th style="width: 6%">PERC 3%</th>
+                        <th style="width: 10%">COSTO FINAL</th>
+                        <th style="width: 9%">% MINOR.</th>
+                        <th style="width: 9%">% MAYOR.</th>
+                        <th style="width: 10%">P. MINOR.</th>
+                        <th style="width: 10%">P. MAYOR.</th>
+                        <th style="width: 7%">STOCK</th>
                     </tr>
                 </thead>
                 <tbody id="tbody-productos">
@@ -218,9 +220,22 @@ function renderizarTabla() {
                     <small class="text-muted">*Último: ${producto.ultimo_proveedor}</small>
                 </td>
                 <td>
-                    <input type="number" class="form-control form-control-sm editable" 
-                           data-field="cost" data-id="${producto.id}" 
+                    <input type="number" class="form-control form-control-sm costo-factura" 
+                           data-id="${producto.id}" 
                            value="${producto.cost}" step="0.01" min="0">
+                </td>
+                <td class="text-center">
+                    <input type="checkbox" class="form-check-input check-iva" 
+                           data-id="${producto.id}">
+                </td>
+                <td class="text-center">
+                    <input type="checkbox" class="form-check-input check-perc" 
+                           data-id="${producto.id}">
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm editable costo-final" 
+                           data-field="cost" data-id="${producto.id}" 
+                           value="${producto.cost}" step="0.01" min="0" style="background-color:#e8f5e9;">
                 </td>
                 <td>
                     <input type="number" class="form-control form-control-sm editable" 
@@ -239,7 +254,6 @@ function renderizarTabla() {
                     $ ${formatMoney(producto.precio_mayorista)}
                 </td>
                 <td>${producto.quantity}</td>
-                <td>${producto.category}</td>
             </tr>
         `;
         
@@ -267,6 +281,35 @@ function renderizarTabla() {
     });
     
     actualizarContadores();
+
+    // Recalcular costo final al cambiar costo factura o checkboxes
+    function recalcularCostoFinal(id) {
+        const costoFactura = parseFloat($(`.costo-factura[data-id="${id}"]`).val()) || 0;
+        const tieneIva = $(`.check-iva[data-id="${id}"]`).is(':checked');
+        const tienePerc = $(`.check-perc[data-id="${id}"]`).is(':checked');
+
+        let costoFinal = costoFactura;
+        if (tieneIva) costoFinal = costoFinal * 1.21;
+        if (tienePerc) costoFinal = costoFinal * 1.03;
+        costoFinal = Math.round(costoFinal * 100) / 100;
+
+        $(`.costo-final[data-id="${id}"]`).val(costoFinal);
+
+        const producto = productos.find(p => p.id === id);
+        producto.cost = costoFinal;
+        recalcularPrecios(producto);
+        productosModificados.add(id);
+        $(`tr[data-id="${id}"]`).addClass('table-warning');
+        actualizarContadores();
+    }
+
+    $('.costo-factura').on('input', function() {
+        recalcularCostoFinal(parseInt($(this).data('id')));
+    });
+
+    $('.check-iva, .check-perc').on('change', function() {
+        recalcularCostoFinal(parseInt($(this).data('id')));
+    });
 }
 
 function recalcularPrecios(producto) {
