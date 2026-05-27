@@ -24,11 +24,13 @@ def pos(request):
     product_json = []
     for product in products:
         product_json.append({
-            'id': product.id, 
-            'name': product.name, 
+            'id': product.id,
+            'name': product.name,
             'precio_mayorista': float(product.precio_mayorista),
             'precio_minorista': float(product.precio_minorista),
-            'price': float(product.precio_minorista)
+            'price': float(product.precio_minorista),
+            'codigo_barras': product.codigo_barras or '',
+            'tipo_venta': product.tipo_venta,
         })
     
     clientes = Cliente.objects.filter(activo=True).order_by('name')

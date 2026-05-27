@@ -16,14 +16,11 @@
 <div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
     <div class="mdc-card">
         <form action="" id="pos-form">
-            <!-- Campo hidden para pedido_id si viene de conversión -->
             <input type="hidden" name="pedido_id" id="pedido-id" value="">
             <input type="hidden" name="cuenta_corriente" id="cuenta_corriente_hidden" value="0">
             <input type="hidden" name="forma_pago" id="forma_pago_hidden" value="efectivo">
             <input type="hidden" name="monto_transferencia" id="monto_transferencia_hidden" value="0">
 
-
-            <!-- NUEVO: Selector de Cliente y Tipo de Lista -->
             <fieldset class="mb-3">
                 <legend>Información del Cliente</legend>
                 <div class="row mt-1">
@@ -53,11 +50,28 @@
                             </select>
                             <small class="text-muted">Los precios se actualizarán según la lista seleccionada</small>
                         </div>
-                    </div>                    
+                    </div>
                 </div>
-            </fieldset>            
+            </fieldset>
             <fieldset>
                 <legend>Agregar Producto </legend>
+                <div class="row align-items-end mb-2">
+                    <div class="col-lg-8 col-md-8 col-sm-12">
+                        <div class="form-group mb-2">
+                            <label for="barcode-input">
+                                <i class="mdi mdi-barcode-scan"></i> Escanear código de barras
+                            </label>
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control" id="barcode-input"
+                                    placeholder="Escanear o escribir código..."
+                                    autocomplete="off">
+                                <span class="input-group-text bg-secondary text-white" id="barcode-status">
+                                    <i class="mdi mdi-barcode"></i>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="row align-items-end">
                     <div class="col-lg-5 col-md-5 col-sm-12">
                         <div class="form-group mb-3">
@@ -119,13 +133,13 @@
                                 <dd>
                                     <div class="input-group">
                                         <span class="input-group-text rounded-0">AR$</span>
-                                        <input type="text" class="form-control form-control-lg rounded-0 text-end" 
-                                            id="descuento_monto" name="descuento_monto" 
+                                        <input type="text" class="form-control form-control-lg rounded-0 text-end"
+                                            id="descuento_monto" name="descuento_monto"
                                             value="0" placeholder="0" inputmode="decimal">
                                         <span class="input-group-text rounded-0 bg-warning" id="descuento_porcentaje">0%</span>
                                     </div>
                                 </dd>
-                                <dt class="h4 fw-bold text-light " >Tax Inclusive (%)</dt>
+                                <dt class="h4 fw-bold text-light">Tax Inclusive (%)</dt>
                                 <dd>
                                     <input type="number" class="form-control form-control-lg rounded-0 text-end" step="any" min="0" max="100" name="tax" value="0" readonly>
                                 </dd>
@@ -154,6 +168,32 @@
         </form>
     </div>
 </div>
+
+<!-- Modal para productos fraccionables -->
+<div class="modal fade" id="modalFraccionable" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ingresar cantidad</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="fw-bold" id="modal-fraccionable-nombre"></p>
+                <input type="hidden" id="modal-fraccionable-id">
+                <div class="form-group">
+                    <label>Cantidad (kg / gr)</label>
+                    <input type="number" class="form-control" id="modal-fraccionable-qty"
+                        step="0.001" min="0.001" placeholder="Ej: 0.350">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary btn-sm" id="modal-fraccionable-confirmar">Agregar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <noscript id="item-clone">
     <tr>
         <td class="px-2 py-1 text-center">
@@ -188,20 +228,27 @@
         });
     }
 
-    // NUEVO: Cargar datos de pedido si existen
+    // Índice de productos por código de barras
+    var barcode_arr = {};
+    Object.keys(prod_arr).forEach(function(k) {
+        var p = prod_arr[k];
+        if (p.codigo_barras && p.codigo_barras !== '') {
+            barcode_arr[p.codigo_barras] = p;
+        }
+    });
+
+    // Cargar datos de pedido si existen
     var pedido_data = '{{ pedido_data|safe }}';
     if (pedido_data && pedido_data != 'None' && pedido_data != '') {
         try {
             pedido_data = $.parseJSON(pedido_data);
-            console.log('Cargando pedido:', pedido_data);
         } catch(e) {
             pedido_data = null;
         }
     } else {
         pedido_data = null;
     }
-    
-    // NUEVO: Función para obtener el precio según lista seleccionada
+
     function getPrecioActual(product_data) {
         var tipo_lista = $('#tipo-lista').val();
         if (tipo_lista === 'mayorista') {
@@ -213,11 +260,10 @@
 
     function calc() {
         var sub_total = 0;
-        var grand_total = 0;
         $('#POS-field table tbody tr').each(function() {
             var price = $(this).find('[name="price[]"]').val();
             var qty = $(this).find('[name="qty[]"]').val();
-            qty = String(qty).replace(',', '.');  // ACEPTAR COMA
+            qty = String(qty).replace(',', '.');
             qty = qty > 0 ? qty : 0;
             var total = parseFloat(price) * parseFloat(qty);
             $(this).find('.product_total').text(parseFloat(total).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
@@ -232,28 +278,21 @@
         var descuento = parseFloat($('#descuento_monto').val()) || 0;
         var total_con_descuento = sub_total - descuento;
         total_con_descuento = total_con_descuento < 0 ? 0 : total_con_descuento;
-
-        // Calcular y mostrar porcentaje
         var porcentaje = sub_total > 0 ? (descuento / sub_total * 100).toFixed(2) : 0;
         $('#descuento_porcentaje').text(porcentaje + '%');
-
         $('#grand_total').text('AR$ ' + parseFloat(total_con_descuento).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
         $('[name="grand_total"]').val(parseFloat(total_con_descuento));
         $('#sub_total').text('AR$ ' + parseFloat(sub_total).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
         $('[name="sub_total"]').val(parseFloat(sub_total));
     }
 
-    // NUEVO: Actualizar precios cuando cambia el tipo de lista
     function actualizarPreciosEnTabla() {
         $('#POS-field table tbody tr').each(function() {
             var product_id = $(this).find('[name="product[]"]').val();
             var qty = $(this).find('[name="qty[]"]').val();
-            
             if (!!prod_arr[product_id]) {
                 var data = prod_arr[product_id];
                 var nuevo_precio = getPrecioActual(data);
-                
-                // Actualizar precio en el item
                 $(this).find('[name="price[]"]').val(nuevo_precio);
                 $(this).find('.product_price').text(parseFloat(nuevo_precio).toLocaleString('en-US'));
                 $(this).find('.product_total').text(parseFloat(nuevo_precio * qty).toLocaleString('en-US'));
@@ -262,24 +301,44 @@
         calc();
     }
 
-    // NUEVO: Función para cargar datos del pedido en el POS
+    function agregarProductoAlCarrito(id, qty) {
+        qty = String(qty).replace(',', '.');
+        if (!prod_arr[id]) {
+            return false;
+        }
+        var data = prod_arr[id];
+        var precio_actual = getPrecioActual(data);
+
+        var tr = $($('noscript#item-clone').html()).clone();
+        tr.find('[name="qty[]"]').val(qty);
+        tr.find('[name="product[]"]').val(id);
+        tr.find('[name="price[]"]').val(precio_actual);
+        tr.find('.product_name').text(data.name);
+        tr.find('.product_price').text(parseFloat(precio_actual).toLocaleString('en-US'));
+        tr.find('.product_total').text(parseFloat(precio_actual * qty).toLocaleString('en-US'));
+        $('#POS-field table tbody').append(tr);
+        calc();
+
+        tr.find('[name="qty[]"]').on('input keypress keyup keydown', function() {
+            calc();
+        });
+        tr.find('.rem-item').click(function() {
+            if (confirm("Esta seguro de remover " + data.name + " de la Lista?") == true) {
+                tr.remove();
+                calc();
+            }
+        });
+        return true;
+    }
+
     function cargarPedido(pedido) {
         if (!pedido) return;
-        
-        // Establecer pedido_id
         $('#pedido-id').val(pedido.pedido_id);
-        
-        // Seleccionar cliente
         $('#cliente-id').val(pedido.cliente_id).trigger('change');
-        
-        // Seleccionar tipo de lista
         $('#tipo-lista').val(pedido.tipo_lista);
-        
-        // Agregar items
         pedido.items.forEach(function(item) {
             if (!!prod_arr[item.product_id]) {
                 var data = prod_arr[item.product_id];
-                
                 var tr = $($('noscript#item-clone').html()).clone();
                 tr.find('[name="qty[]"]').val(item.cantidad);
                 tr.find('[name="product[]"]').val(item.product_id);
@@ -287,13 +346,10 @@
                 tr.find('.product_name').text(data.name);
                 tr.find('.product_price').text(parseFloat(item.precio).toLocaleString('en-US'));
                 tr.find('.product_total').text(parseFloat(item.precio * item.cantidad).toLocaleString('en-US'));
-                
                 $('#POS-field table tbody').append(tr);
-                
                 tr.find('[name="qty[]"]').on('input keypress keyup keydown', function() {
                     calc();
                 });
-                
                 tr.find('.rem-item').click(function() {
                     if (confirm("¿Remover " + data.name + " de la Lista?")) {
                         tr.remove();
@@ -302,40 +358,32 @@
                 });
             }
         });
-        
         calc();
     }
-    
+
     $(function() {
-        // Select2 para productos
         $('#product-id').select2({
             placeholder: "Por favor, Seleccione su Producto",
             width: '100%'
         });
 
-        // NUEVO: Select2 para clientes
         $('#cliente-id').select2({
             placeholder: "--- Cliente General (Mostrador) ---",
             width: '100%',
             allowClear: true
         });
 
-        // NUEVO: Cuando selecciona un cliente, auto-aplicar su tipo de lista
         $('#cliente-id').change(function() {
             var selectedOption = $(this).find('option:selected');
             var tipoCliente = selectedOption.data('tipo');
-            
             if (tipoCliente) {
                 $('#tipo-lista').val(tipoCliente);
-                
-                // Actualizar precios si hay productos en el carrito
                 if ($('#POS-field table tbody tr').length > 0) {
                     actualizarPreciosEnTabla();
                 }
             }
         });
 
-        // NUEVO: Listener para cambio de tipo de lista
         $('#tipo-lista').change(function() {
             if ($('#POS-field table tbody tr').length > 0) {
                 if (confirm('¿Desea actualizar los precios de los productos en el carrito según la nueva lista?')) {
@@ -344,38 +392,77 @@
             }
         });
 
+        // Lógica del lector de código de barras
+        $('#barcode-input').on('keypress', function(e) {
+            if (e.which === 13) {
+                e.preventDefault();
+                var codigo = $(this).val().trim();
+                $(this).val('');
+                if (codigo === '') return;
+
+                var producto = barcode_arr[codigo];
+
+                if (!producto) {
+                    $('#barcode-status').removeClass('bg-secondary bg-success').addClass('bg-danger');
+                    $('#barcode-status').html('<i class="mdi mdi-alert"></i>');
+                    setTimeout(function() {
+                        $('#barcode-status').removeClass('bg-danger').addClass('bg-secondary');
+                        $('#barcode-status').html('<i class="mdi mdi-barcode"></i>');
+                    }, 2000);
+                    alert('Código no encontrado: ' + codigo);
+                    return;
+                }
+
+                if (producto.tipo_venta === 'fraccionable') {
+                    $('#modal-fraccionable-nombre').text(producto.name);
+                    $('#modal-fraccionable-qty').val('');
+                    $('#modal-fraccionable-id').val(producto.id);
+                    $('#modalFraccionable').modal('show');
+                    setTimeout(function() {
+                        $('#modal-fraccionable-qty').focus();
+                    }, 500);
+                } else {
+                    agregarProductoAlCarrito(producto.id, 1);
+                    $('#barcode-status').removeClass('bg-secondary bg-danger').addClass('bg-success');
+                    $('#barcode-status').html('<i class="mdi mdi-check"></i>');
+                    setTimeout(function() {
+                        $('#barcode-status').removeClass('bg-success').addClass('bg-secondary');
+                        $('#barcode-status').html('<i class="mdi mdi-barcode"></i>');
+                    }, 1000);
+                }
+            }
+        });
+
+        // Confirmar cantidad para fraccionable
+        $('#modal-fraccionable-confirmar').click(function() {
+            var id = $('#modal-fraccionable-id').val();
+            var qty = $('#modal-fraccionable-qty').val();
+            if (!qty || parseFloat(qty) <= 0) {
+                alert('Ingresá una cantidad válida');
+                return;
+            }
+            agregarProductoAlCarrito(id, qty);
+            $('#modalFraccionable').modal('hide');
+        });
+
+        // También confirmar con Enter en el campo de cantidad
+        $('#modal-fraccionable-qty').on('keypress', function(e) {
+            if (e.which === 13) {
+                $('#modal-fraccionable-confirmar').click();
+            }
+        });
+
         $('#add_item').click(function() {
             var id = $('#product-id').val();
             var qty = $('#product-qty').val();
-            qty = String(qty).replace(',', '.');  // ACEPTAR COMA
             if (id == '' || qty == '' || id == null || qty == null) {
                 alert("Producto y Cantidad es requerido!");
                 return false;
             }
-            if (!!prod_arr[id]) {
-                var data = prod_arr[id];
-                var precio_actual = getPrecioActual(data); // CAMBIO: Usar precio según lista
-                
-                var tr = $($('noscript#item-clone').html()).clone();
-                tr.find('[name="qty[]"]').val(qty);
-                tr.find('[name="product[]"]').val(id);
-                tr.find('[name="price[]"]').val(precio_actual);
-                tr.find('.product_name').text(data.name);
-                tr.find('.product_price').text(parseFloat(precio_actual).toLocaleString('en-US'));
-                tr.find('.product_total').text(parseFloat(precio_actual * qty).toLocaleString('en-US'));
-                $('#POS-field table tbody').append(tr);
+            var ok = agregarProductoAlCarrito(id, qty);
+            if (ok) {
                 $('#product-id').val('').trigger('change');
                 $('#product-qty').val(1);
-                calc();
-                tr.find('[name="qty[]"]').on('input keypress keyup keydown', function() {
-                    calc();
-                });
-                tr.find('.rem-item').click(function() {
-                    if (confirm("Esta seguro de remover " + data.name + " de la Lista?") == true) {
-                        tr.remove();
-                        calc();
-                    }
-                });
             } else {
                 alert("Producto no definido");
             }
@@ -443,53 +530,44 @@
             });
         });
 
-        // NUEVO: Cargar pedido si existe
         if (pedido_data) {
             cargarPedido(pedido_data);
         }
     });
-    // EDITAR PRECIO CLICKEANDO EN LA CELDA
+
     $(document).on('click', '.product_price', function() {
         var td = $(this);
         var precio_actual = $(this).closest('tr').find('[name="price[]"]').val();
-        
-        // Reemplazar texto por input
         td.html('<input type="number" class="form-control form-control-sm rounded-0 text-end precio-edit" value="' + precio_actual + '" style="width:80px; display:inline-block;">');
         td.find('.precio-edit').focus().select();
     });
 
-    // CUANDO TERMINA DE EDITAR (pierde foco o presiona Enter)
     $(document).on('blur change', '.precio-edit', function() {
         var input = $(this);
         var tr = input.closest('tr');
         var nuevo_precio = parseFloat(input.val());
-        
         if (isNaN(nuevo_precio) || nuevo_precio <= 0) {
             nuevo_precio = parseFloat(tr.find('[name="price[]"]').val());
         }
-        
-        // Actualizar precio oculto
         tr.find('[name="price[]"]').val(nuevo_precio);
-        
-        // Mostrar precio formateado
         input.closest('td').text(parseFloat(nuevo_precio).toLocaleString('en-US'));
-        
-        // Recalcular totales
         calc();
     });
 
     $(document).on('keypress', '.precio-edit', function(e) {
-        if (e.which === 13) { // Enter
+        if (e.which === 13) {
             $(this).blur();
         }
     });
+
     $('#descuento_monto').on('input', function() {
-    calc();
+        calc();
     });
+
     $('#descuento_monto').on('focus', function() {
-    if ($(this).val() == '0') {
-        $(this).val('');
-    }
+        if ($(this).val() == '0') {
+            $(this).val('');
+        }
     });
 
     $('#descuento_monto').on('blur', function() {
