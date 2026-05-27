@@ -77,7 +77,7 @@
                             <div class="form-group mb-3">
                                 <label for="product-qty">Cantidad</label>
                                 <input type="number" class="form-control form-control-sm text-center" 
-                                    step="1" id="product-qty" value="1">
+                                    step="0.001" id="product-qty" value="1">
                             </div>
                         </div>
                         <div class="col-md-2">
@@ -201,7 +201,7 @@
         <td class="text-end product-desc"></td>
         <td class="text-center">
             <input type="number" name="qty[]" class="form-control form-control-sm text-center qty-input" 
-                   min="1" step="1" value="1">
+                   min="0.001" step="0.001" value="1">
             <input type="hidden" name="product[]" class="product-id">
             <input type="hidden" name="cost[]" class="cost-value">
             <input type="hidden" name="desc[]" class="desc-value">

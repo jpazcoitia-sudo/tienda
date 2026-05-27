@@ -85,7 +85,7 @@ class PurchaseProduct(models.Model):
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True)
     product = models.ForeignKey(Products, on_delete=models.SET_NULL, null=True)
     cost = models.DecimalField(max_digits=18, decimal_places=8, default=0)
-    qty = models.DecimalField(max_digits=10, decimal_places=0, default=0)
+    qty = models.DecimalField(max_digits=10, decimal_places=3, default=0)
     total = models.DecimalField(max_digits=18, decimal_places=8, editable=False, default=0)
     date_added = models.DateTimeField(default=timezone.now)
     date_updated = models.DateTimeField(auto_now=True)
