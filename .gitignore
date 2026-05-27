@@ -53,3 +53,7 @@ claude.bk8.md
 claude.*.md
 DECISION_*.txt
 store/db.sqlite3
+
+# Archivos de sistema Mac
+*.webloc
+.DS_Store
