@@ -31,8 +31,10 @@ class CategoryForm(forms.ModelForm):
 class ProductsForm(forms.ModelForm):
     class Meta:
         model = Products
-        fields = ['code', 'category', 'name', 'description', 
-                  'cost', 'margen_mayorista', 'margen_minorista', 'punto_pedido', 'status']
+        fields = ['code', 'category', 'name', 'description',
+            'cost', 'margen_mayorista', 'margen_minorista',
+            'punto_pedido', 'tipo_venta', 'codigo_barras',
+            'codigo_tipo','status']
         labels = {
             'code': 'Código',
             'category': 'Categoría',
@@ -43,6 +45,9 @@ class ProductsForm(forms.ModelForm):
             'margen_minorista': 'Margen Minorista (%)',
             'status': 'Estado',
             'punto_pedido': 'Punto de Pedido',
+            'tipo_venta': 'Tipo de Venta',
+            'codigo_barras': 'Código de Barras',
+            'codigo_tipo': 'Tipo de Código',
         }
         widgets = {
             'code': forms.TextInput(attrs={
@@ -83,5 +88,15 @@ class ProductsForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': 'Ej: 5 (0 = sin alerta)',
                 'step': '0.01',
+            }),
+            'tipo_venta': forms.Select(attrs={
+                'class': 'form-control',
+            }),
+            'codigo_barras': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Escanear o ingresar código',
+            }),
+            'codigo_tipo': forms.Select(attrs={
+                'class': 'form-control',
             }),
         }

@@ -22,6 +22,28 @@ from django.db import transaction
 
 logger = logging.getLogger(__name__)
 
+def generar_codigo_interno():
+    """
+    Genera un código EAN-13 interno único.
+    Formato: 200 + 9 dígitos secuenciales + 1 dígito verificador
+    """
+    import random
+    
+    while True:
+        # Prefijo 200 + 9 dígitos aleatorios
+        base = '200' + str(random.randint(0, 999999999)).zfill(9)
+        
+        # Calcular dígito verificador EAN-13
+        pares = sum(int(base[i]) for i in range(0, 12, 2))
+        impares = sum(int(base[i]) for i in range(1, 12, 2))
+        verificador = (10 - ((pares + impares * 3) % 10)) % 10
+        
+        codigo = base + str(verificador)
+        
+        # Verificar que no exista
+        if not Products.objects.filter(codigo_barras=codigo).exists():
+            return codigo
+
 class CategoryProductsList(LoginRequiredMixin, PermissionRequiredMixin, generic.ListView):
 
     model = Category
@@ -151,9 +173,16 @@ class ProductUpdate(LoginRequiredMixin, PermissionRequiredMixin, generic.UpdateV
     
     def form_valid(self, form):
         product_name = self.get_object().name
-        response = super().form_valid(form)
+        producto = form.save(commit=False)
+        
+        # Si es código interno y no tiene código, generar uno
+        if (producto.codigo_tipo == Products.CODIGO_TIPO_INTERNO
+                and not producto.codigo_barras):
+            producto.codigo_barras = generar_codigo_interno()
+        
+        producto.save()
         messages.success(self.request, f"Producto '{product_name}' actualizado exitosamente.")
-        return response
+        return redirect(self.success_url)
     
     def form_invalid(self, form):
         logger.error("Error updating product: %s", form.errors)

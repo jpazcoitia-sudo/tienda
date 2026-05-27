@@ -48,6 +48,20 @@ class Products(models.Model):
         (STATUS_ACTIVE, 'Activo'),
     ]
 
+    TIPO_VENTA_UNIDAD = 'unidad'
+    TIPO_VENTA_FRACCIONABLE = 'fraccionable'
+    TIPO_VENTA_CHOICES = [
+        (TIPO_VENTA_UNIDAD, 'Unidad'),
+        (TIPO_VENTA_FRACCIONABLE, 'Fraccionable'),
+    ]
+
+    CODIGO_TIPO_EXTERNO = 'externo'
+    CODIGO_TIPO_INTERNO = 'interno'
+    CODIGO_TIPO_CHOICES = [
+        (CODIGO_TIPO_EXTERNO, 'Externo (fabricante)'),
+        (CODIGO_TIPO_INTERNO, 'Interno (generado)'),
+    ]
+
     code = models.CharField(max_length=100, unique=True)
     category = models.ForeignKey('Category', on_delete=models.SET_NULL, null=True)
     name = models.CharField(max_length=255)
@@ -101,6 +115,30 @@ class Products(models.Model):
         default=0,
         verbose_name='Punto de Pedido',
         help_text='Avisar cuando el stock llegue a este valor (0 = sin alerta)'
+    )
+
+    tipo_venta = models.CharField(
+        max_length=20,
+        choices=TIPO_VENTA_CHOICES,
+        default=TIPO_VENTA_UNIDAD,
+        verbose_name='Tipo de Venta',
+        help_text='Unidad: agrega 1 al escanear. Fraccionable: pide cantidad.'
+    )
+
+    codigo_barras = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        unique=True,
+        verbose_name='Código de Barras'
+    )
+
+    codigo_tipo = models.CharField(
+        max_length=10,
+        choices=CODIGO_TIPO_CHOICES,
+        default=CODIGO_TIPO_INTERNO,
+        verbose_name='Tipo de Código',
+        help_text='Externo: viene del fabricante. Interno: generado por el sistema.'
     )
 
     class Meta:
