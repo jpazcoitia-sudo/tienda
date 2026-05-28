@@ -107,7 +107,7 @@ class Products(models.Model):
     status = models.IntegerField(choices=STATUS_CHOICES, default=STATUS_ACTIVE)
     date_added = models.DateTimeField(default=timezone.now)
     date_updated = models.DateTimeField(auto_now=True)
-    quantity = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     punto_pedido = models.DecimalField(
         max_digits=10,

@@ -230,7 +230,7 @@ def edicion_rapida_precios(request):
             'porc_mayorista': calcular_porcentaje(producto.cost, producto.precio_mayorista),
             'precio_minorista': float(producto.precio_minorista),
             'precio_mayorista': float(producto.precio_mayorista),
-            'quantity': producto.quantity,
+            'quantity': float(producto.quantity),
             'ultimo_proveedor': proveedor_nombre,
             'category': producto.category.name if producto.category else '-',
         })

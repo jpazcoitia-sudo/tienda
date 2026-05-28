@@ -17,7 +17,7 @@
       <p><strong>Descripción:</strong> {{ product.description }}</p>
       <p><strong>Costo:</strong> AR$ {{ product.cost|floatformat:2 }}</p>
       <p><strong>Precio:</strong> AR$ {{ product.price|floatformat:2 }}</p>
-      <p><strong>Cantidad en Stock:</strong> {{ product.quantity }}</p>
+      <p><strong>Cantidad en Stock:</strong> {{ product.quantity|floatformat:"-2" }}</p>
       <p><strong>Cantidad Histórica:</strong> {{ cantidad_historica }}</p>
       <td class="text-center">
         <a href="{% url 'inventory:product_list' %}" class="btn btn-success btn-sm" title="Lista de Productos">

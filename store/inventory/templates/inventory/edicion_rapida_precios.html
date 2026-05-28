@@ -222,7 +222,7 @@ function renderizarTabla() {
                 <td>
                     <input type="number" class="form-control form-control-sm costo-factura" 
                            data-id="${producto.id}" 
-                           value="${producto.cost}" step="0.01" min="0">
+                           value="${producto.cost}" step="0.01" min="0" style="min-width:110px;">
                 </td>
                 <td class="text-center">
                     <input type="checkbox" class="form-check-input check-iva" 
@@ -235,7 +235,7 @@ function renderizarTabla() {
                 <td>
                     <input type="number" class="form-control form-control-sm editable costo-final" 
                            data-field="cost" data-id="${producto.id}" 
-                           value="${producto.cost}" step="0.01" min="0" style="background-color:#e8f5e9;">
+                           value="${producto.cost}" step="0.01" min="0" style="background-color:#e8f5e9; min-width:110px;">
                 </td>
                 <td>
                     <input type="number" class="form-control form-control-sm editable" 
@@ -253,7 +253,7 @@ function renderizarTabla() {
                 <td class="precio-mayor-${producto.id}">
                     $ ${formatMoney(producto.precio_mayorista)}
                 </td>
-                <td>${producto.quantity}</td>
+                <td>${parseFloat(producto.quantity) % 1 === 0 ? parseInt(producto.quantity) : parseFloat(producto.quantity)}</td>
             </tr>
         `;
         

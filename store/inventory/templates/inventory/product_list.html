@@ -74,7 +74,7 @@
               <td class="text-center">AR$ {{ product.cost|floatformat:2 }}</td>
               <td class="text-center">AR$ {{ product.precio_mayorista|floatformat:2 }}</td>
               <td class="text-center">AR$ {{ product.precio_minorista|floatformat:2 }}</td>
-              <td class="text-center">{{ product.quantity }}</td>
+              <td class="text-center">{{ product.quantity|floatformat:"-2" }}</td>
               
               <td class="text-center">
                 {% if product.status == product.STATUS_ACTIVE %}

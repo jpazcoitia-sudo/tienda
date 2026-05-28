@@ -135,7 +135,7 @@
                         {{ producto.name }}
                     </a>
                     <span>
-                        <span class="text-danger fw-bold" title="Stock actual">{{ producto.quantity }}</span>
+                        <span class="text-danger fw-bold" title="Stock actual">{{ producto.quantity|floatformat:"-2" }}</span>
                         <span class="text-muted" title="Punto de pedido"> (min: {{ producto.punto_pedido|floatformat:0 }})</span>
                     </span>
                 </div>
