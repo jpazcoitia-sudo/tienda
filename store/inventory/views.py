@@ -5,7 +5,7 @@ from datetime import date, datetime
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
-from django.db.models import Count, Sum, Q, Prefetch
+from django.db.models import Count, Sum, Q, Prefetch, Max
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -43,6 +43,23 @@ def generar_codigo_interno():
         # Verificar que no exista
         if not Products.objects.filter(codigo_barras=codigo).exists():
             return codigo
+
+
+def generar_codigo_fraccionable(plu):
+    """
+    Genera un código EAN-13 para producto fraccionable con PLU embebido.
+    Formato: 2 + PPPPP (PLU 5 dígitos) + 00000 (peso vacío) + C (verificador)
+    Ejemplo: PLU 1 → 200000100000X
+    """
+    base = '2' + str(plu).zfill(5) + '000000'
+
+    # Calcular dígito verificador EAN-13
+    pares = sum(int(base[i]) for i in range(0, 12, 2))
+    impares = sum(int(base[i]) for i in range(1, 12, 2))
+    verificador = (10 - ((pares + impares * 3) % 10)) % 10
+
+    return base + str(verificador)
+
 
 class CategoryProductsList(LoginRequiredMixin, PermissionRequiredMixin, generic.ListView):
 
@@ -154,10 +171,32 @@ class ProductCreate(LoginRequiredMixin, PermissionRequiredMixin, generic.CreateV
     permission_required = 'inventory.add_products'
     
     def form_valid(self, form):
-        response = super().form_valid(form)
-        product_name = form.instance.name
-        messages.success(self.request, f"Producto '{product_name}' creado exitosamente.")
-        return response
+        producto = form.save(commit=False)
+
+        # Si es fraccionable y no tiene PLU, asignar el próximo disponible
+        if producto.tipo_venta == Products.TIPO_VENTA_FRACCIONABLE and not producto.plu:
+            ultimo_plu = Products.objects.filter(
+                plu__isnull=False
+            ).aggregate(maximo=Max('plu'))['maximo'] or 0
+            producto.plu = ultimo_plu + 1
+
+        # Si es fraccionable y tiene producto_origen y no tiene costo, copiar el costo
+        if (producto.tipo_venta == Products.TIPO_VENTA_FRACCIONABLE
+                and producto.producto_origen
+                and not producto.cost):
+            producto.cost = producto.producto_origen.cost
+
+        # Si es código interno y no tiene código, generar uno
+        if (producto.codigo_tipo == Products.CODIGO_TIPO_INTERNO
+                and not producto.codigo_barras):
+            if producto.tipo_venta == Products.TIPO_VENTA_FRACCIONABLE and producto.plu:
+                producto.codigo_barras = generar_codigo_fraccionable(producto.plu)
+            else:
+                producto.codigo_barras = generar_codigo_interno()
+
+        producto.save()
+        messages.success(self.request, f"Producto '{producto.name}' creado exitosamente.")
+        return redirect(self.success_url)
 
     def form_invalid(self, form):
         logger.error("Error creating product: %s", form.errors)
@@ -174,12 +213,28 @@ class ProductUpdate(LoginRequiredMixin, PermissionRequiredMixin, generic.UpdateV
     def form_valid(self, form):
         product_name = self.get_object().name
         producto = form.save(commit=False)
-        
-        # Si es código interno y no tiene código, generar uno
+
+        # Si es fraccionable y no tiene PLU, asignar el próximo disponible
+        if producto.tipo_venta == Products.TIPO_VENTA_FRACCIONABLE and not producto.plu:
+            ultimo_plu = Products.objects.filter(
+                plu__isnull=False
+            ).aggregate(maximo=Max('plu'))['maximo'] or 0
+            producto.plu = ultimo_plu + 1
+
+        # Si es fraccionable y tiene producto_origen, copiar el costo
+        if (producto.tipo_venta == Products.TIPO_VENTA_FRACCIONABLE
+                and producto.producto_origen
+                and not producto.cost):
+            producto.cost = producto.producto_origen.cost
+
+        # Si es código interno y no tiene código, generar EAN-13 con PLU embebido
         if (producto.codigo_tipo == Products.CODIGO_TIPO_INTERNO
                 and not producto.codigo_barras):
-            producto.codigo_barras = generar_codigo_interno()
-        
+            if producto.tipo_venta == Products.TIPO_VENTA_FRACCIONABLE and producto.plu:
+                producto.codigo_barras = generar_codigo_fraccionable(producto.plu)
+            else:
+                producto.codigo_barras = generar_codigo_interno()
+
         producto.save()
         messages.success(self.request, f"Producto '{product_name}' actualizado exitosamente.")
         return redirect(self.success_url)
@@ -367,4 +422,13 @@ def actualizacion_masiva_proveedor(request):
             'success': False,
             'error': str(e)
         })
+@login_required
+def api_producto_costo(request, pk):
+    """Devuelve el costo de un producto para prellenar formularios."""
+    producto = get_object_or_404(Products, pk=pk)
+    return JsonResponse({
+        'cost': float(producto.cost),
+        'name': producto.name,
+    })
+        
     

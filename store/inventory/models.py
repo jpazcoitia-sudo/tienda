@@ -141,6 +141,24 @@ class Products(models.Model):
         help_text='Externo: viene del fabricante. Interno: generado por el sistema.'
     )
 
+    plu = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        unique=True,
+        verbose_name='PLU',
+        help_text='Número PLU para balanza (asignado automáticamente al marcar como fraccionable)'
+    )
+
+    producto_origen = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='fraccionados',
+        verbose_name='Producto Origen',
+        help_text='Para fraccionables: producto del cual proviene (actualiza costo automáticamente)'
+    )
+
     class Meta:
         indexes = [
             models.Index(fields=['code']),
@@ -185,6 +203,13 @@ class Products(models.Model):
         self.calcular_precios()
         self.save(update_fields=['cost', 'precio_mayorista', 'precio_minorista'])
         self.update_status()
+
+        # Si este producto es origen de fraccionados, actualizar su costo también
+        for fraccionado in self.fraccionados.all():
+            fraccionado.cost = new_cost
+            fraccionado.calcular_precios()
+            fraccionado.save(update_fields=['cost', 'precio_mayorista', 'precio_minorista'])
+            fraccionado.update_status()
 
     def calcular_precios(self):
         """
@@ -245,6 +270,14 @@ class Products(models.Model):
 
     def update_status(self):
         """Actualiza el estado del producto basandose en cantidad, costo y precio."""
+        # Los fraccionables no se desactivan por stock cero
+        if self.tipo_venta == self.TIPO_VENTA_FRACCIONABLE:
+            if self.cost > Decimal('0') and self.precio_minorista > Decimal('0'):
+                if self.status != self.STATUS_ACTIVE:
+                    self.status = self.STATUS_ACTIVE
+                    self.save(update_fields=['status'])
+            return
+
         if self.quantity > 0 and self.cost > Decimal('0') and self.precio_minorista > Decimal('0'):
             if self.status != self.STATUS_ACTIVE:
                 self.status = self.STATUS_ACTIVE

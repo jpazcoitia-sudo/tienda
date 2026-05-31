@@ -21,4 +21,5 @@ urlpatterns = [
     path('edicion-rapida-precios/', views.edicion_rapida_precios, name='edicion_rapida_precios'),
     path('guardar-cambios-precios/', views.guardar_cambios_precios, name='guardar_cambios_precios'),
     path('actualizacion-masiva-proveedor/', views.actualizacion_masiva_proveedor, name='actualizacion_masiva_proveedor'),
+    path('api/producto-costo/<int:pk>/', views.api_producto_costo, name='api_producto_costo'),
 ]

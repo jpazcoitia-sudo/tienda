@@ -84,7 +84,7 @@ class PurchaseCreate(LoginRequiredMixin, PermissionRequiredMixin, generic.Templa
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['suppliers'] = Supplier.objects.all().order_by('name')
-        context['products'] = Products.objects.all().order_by('name')
+        context['products'] = Products.objects.exclude(tipo_venta='fraccionable').order_by('name')
         
         # Crear JSON de productos para JavaScript
         products_json = {}
@@ -185,7 +185,7 @@ class PurchaseUpdate(LoginRequiredMixin, PermissionRequiredMixin, generic.View):
         purchase = get_object_or_404(Purchase, pk=pk)
         items = purchase.items.all()
         suppliers = Supplier.objects.all().order_by('name')
-        products = Products.objects.all().order_by('name')
+        products = Products.objects.exclude(tipo_venta='fraccionable').order_by('name')
         
         products_json = {}
         for product in products:

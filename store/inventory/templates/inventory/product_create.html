@@ -107,6 +107,73 @@
                 </div>
                 
                 <div class="form-group row">
+                    <div class="col-md-4">
+                        <label for="{{ form.punto_pedido.id_for_label }}" class="form-label">{{ form.punto_pedido.label }}</label>
+                        {{ form.punto_pedido }}
+                        {% if form.punto_pedido.errors %}
+                            <div class="text-danger">
+                                {% for error in form.punto_pedido.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <small class="text-muted">{{ form.punto_pedido.help_text }}</small>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{ form.tipo_venta.id_for_label }}" class="form-label">{{ form.tipo_venta.label }}</label>
+                        {{ form.tipo_venta }}
+                        {% if form.tipo_venta.errors %}
+                            <div class="text-danger">
+                                {% for error in form.tipo_venta.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label for="{{ form.codigo_tipo.id_for_label }}" class="form-label">{{ form.codigo_tipo.label }}</label>
+                        {{ form.codigo_tipo }}
+                        {% if form.codigo_tipo.errors %}
+                            <div class="text-danger">
+                                {% for error in form.codigo_tipo.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <div class="col-md-6">
+                        <label for="{{ form.codigo_barras.id_for_label }}" class="form-label">{{ form.codigo_barras.label }}</label>
+                        {{ form.codigo_barras }}
+                        {% if form.codigo_barras.errors %}
+                            <div class="text-danger">
+                                {% for error in form.codigo_barras.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="form-group row" id="bloque-producto-origen" style="display:none;">
+                    <div class="col-md-8">
+                        <label for="{{ form.producto_origen.id_for_label }}" class="form-label">
+                            {{ form.producto_origen.label }}
+                        </label>
+                        {{ form.producto_origen }}
+                        {% if form.producto_origen.errors %}
+                            <div class="text-danger">
+                                {% for error in form.producto_origen.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <small class="text-muted">Producto del cual proviene este fraccionable</small>
+                    </div>
+                </div>
+
+                <div class="form-group row">
                     <div class="col-md-6">
                         <label class="form-label">{{ form.status.label }}</label>
                         {{ form.status }}
@@ -233,9 +300,43 @@
             }
             
             costInput.addEventListener('input', calcularPrecios);
-            margenMayInput.addEventListener('input', calcularPrecios);
-            margenMinInput.addEventListener('input', calcularPrecios);
+        margenMayInput.addEventListener('input', calcularPrecios);
+        margenMinInput.addEventListener('input', calcularPrecios);
         }
+
+        // Mostrar/ocultar bloque producto origen según tipo_venta
+        const tipoVentaSelect = document.querySelector('#id_tipo_venta');
+        const bloqueOrigen = document.querySelector('#bloque-producto-origen');
+        const productoOrigenSelect = document.querySelector('#id_producto_origen');
+        const costInput2 = document.querySelector('#id_cost');
+
+        function toggleProductoOrigen() {
+            if (tipoVentaSelect.value === 'fraccionable') {
+                bloqueOrigen.style.display = 'flex';
+            } else {
+                bloqueOrigen.style.display = 'none';
+            }
+        }
+
+        // Al seleccionar producto origen, pre-llenar costo
+        productoOrigenSelect.addEventListener('change', function() {
+            const productoId = this.value;
+            if (!productoId) return;
+
+            fetch(`/inventory/api/producto-costo/${productoId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.cost !== undefined) {
+                        costInput2.value = data.cost;
+                        // Disparar evento para recalcular precios
+                        costInput2.dispatchEvent(new Event('input'));
+                    }
+                })
+                .catch(err => console.error('Error al traer costo:', err));
+        });
+
+        toggleProductoOrigen();
+        tipoVentaSelect.addEventListener('change', toggleProductoOrigen);
     });
 </script>
 {% endblock %}

@@ -34,7 +34,7 @@ class ProductsForm(forms.ModelForm):
         fields = ['code', 'category', 'name', 'description',
             'cost', 'margen_mayorista', 'margen_minorista',
             'punto_pedido', 'tipo_venta', 'codigo_barras',
-            'codigo_tipo','status']
+            'codigo_tipo', 'producto_origen', 'status']
         labels = {
             'code': 'Código',
             'category': 'Categoría',
@@ -48,6 +48,7 @@ class ProductsForm(forms.ModelForm):
             'tipo_venta': 'Tipo de Venta',
             'codigo_barras': 'Código de Barras',
             'codigo_tipo': 'Tipo de Código',
+            'producto_origen': 'Producto Origen',
         }
         widgets = {
             'code': forms.TextInput(attrs={
@@ -98,5 +99,9 @@ class ProductsForm(forms.ModelForm):
             }),
             'codigo_tipo': forms.Select(attrs={
                 'class': 'form-control',
+            }),
+            'producto_origen': forms.Select(attrs={
+                'class': 'form-control',
+                'id': 'id_producto_origen',
             }),
         }

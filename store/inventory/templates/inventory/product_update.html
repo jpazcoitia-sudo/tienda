@@ -158,6 +158,30 @@
                     </div>
                 </div>
 
+                <div class="form-group row" id="bloque-producto-origen" style="display:none;">
+                    <div class="col-md-8">
+                        <label for="{{ form.producto_origen.id_for_label }}" class="form-label">
+                            {{ form.producto_origen.label }}
+                        </label>
+                        {{ form.producto_origen }}
+                        {% if form.producto_origen.errors %}
+                            <div class="text-danger">
+                                {% for error in form.producto_origen.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <small class="text-muted">Producto del cual proviene este fraccionable (actualiza el costo automáticamente al cargar compras)</small>
+                    </div>
+                    {% if products.producto_origen %}
+                    <div class="col-md-4 d-flex align-items-end">
+                        <a href="{% url 'inventory:product_update' products.producto_origen.pk %}" class="btn btn-sm btn-outline-secondary">
+                            Ver producto origen →
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+
                 <div class="form-group row">
                     <div class="col-md-6">
                         <label class="form-label">{{ form.status.label }}</label>
@@ -171,6 +195,42 @@
                         {% endif %}
                     </div>
                 </div>
+                {% if products.fraccionados.exists %}
+                <div class="form-group row">
+                    <div class="col-12">
+                        <label class="form-label fw-bold">Productos fraccionados de este origen:</label>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>PLU</th>
+                                        <th>Código de barras</th>
+                                        <th>Costo</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for fraccionado in products.fraccionados.all %}
+                                    <tr>
+                                        <td>{{ fraccionado.name }}</td>
+                                        <td>{{ fraccionado.plu|default:"-" }}</td>
+                                        <td>{{ fraccionado.codigo_barras|default:"-" }}</td>
+                                        <td>AR$ {{ fraccionado.cost }}</td>
+                                        <td>
+                                            <a href="{% url 'inventory:product_update' fraccionado.pk %}" class="btn btn-sm btn-outline-primary">
+                                                Editar →
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
                 <div class="form-group row">
                     <div class="col-md-6">
                         <label class="form-label">Fecha de Creación</label>
@@ -236,6 +296,22 @@
         costInput.on('input', calcularPrecios);
         margenMayInput.on('input', calcularPrecios);
         margenMinInput.on('input', calcularPrecios);
+
+        // Mostrar/ocultar bloque producto origen según tipo_venta
+        function toggleProductoOrigen() {
+            const tipoVenta = $('#id_tipo_venta').val();
+            if (tipoVenta === 'fraccionable') {
+                $('#bloque-producto-origen').show();
+            } else {
+                $('#bloque-producto-origen').hide();
+            }
+        }
+
+        // Ejecutar al cargar la página
+        toggleProductoOrigen();
+
+        // Ejecutar al cambiar tipo_venta
+        $('#id_tipo_venta').on('change', toggleProductoOrigen);
     });
 </script>
 <style>
