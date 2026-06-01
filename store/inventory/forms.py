@@ -105,3 +105,9 @@ class ProductsForm(forms.ModelForm):
                 'id': 'id_producto_origen',
             }),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['producto_origen'].queryset = Products.objects.exclude(
+            tipo_venta='fraccionable'
+        ).order_by('name')
