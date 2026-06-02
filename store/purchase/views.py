@@ -112,8 +112,8 @@ class PurchaseCreate(LoginRequiredMixin, PermissionRequiredMixin, generic.Templa
                 qtys = request.POST.getlist('qty[]')
                 
                 # IVA y Percepción como montos fijos
-                iva_monto = Decimal(request.POST.get('iva_pct', 0) or 0)
-                perc_monto = Decimal(request.POST.get('perc_pct', 0) or 0)
+                iva_monto = Decimal(str(request.POST.get('iva_pct', 0) or 0).replace(',', '.'))
+                perc_monto = Decimal(str(request.POST.get('perc_pct', 0) or 0).replace(',', '.'))
                 
                 if not product_ids:
                     messages.error(request, "Debe agregar al menos un producto.")
@@ -129,8 +129,8 @@ class PurchaseCreate(LoginRequiredMixin, PermissionRequiredMixin, generic.Templa
                 subtotal = Decimal(0)
                 items_data = []
                 for i in range(len(product_ids)):
-                    cost = Decimal(costs[i])
-                    qty = Decimal(qtys[i])
+                    cost = Decimal(str(costs[i]).replace(',', '.'))
+                    qty = Decimal(str(qtys[i]).replace(',', '.'))
                     subtotal += cost * qty
                     items_data.append({
                         'product_id': product_ids[i],
@@ -229,8 +229,8 @@ class PurchaseUpdate(LoginRequiredMixin, PermissionRequiredMixin, generic.View):
                 total = Decimal(0)
                 for i in range(len(product_ids)):
                     product = Products.objects.get(id=product_ids[i])
-                    cost = Decimal(costs[i])
-                    qty = Decimal(qtys[i])
+                    cost = Decimal(str(costs[i]).replace(',', '.'))
+                    qty = Decimal(str(qtys[i]).replace(',', '.'))
                     PurchaseProduct.objects.create(
                         purchase=purchase,
                         supplier=supplier,

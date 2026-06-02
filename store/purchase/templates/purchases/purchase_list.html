@@ -33,7 +33,7 @@
           <tr>
             <th class="text-center">Proveedor</th>
             <th class="text-center">Monto Total</th>
-            <th class="text-center">Última Actualización</th>
+            <th class="text-center">Fecha</th>
             <th class="text-center">Acciones</th>
           </tr>
         </thead>
@@ -42,7 +42,7 @@
           <tr>
             <td class="text-center">{{ purchase.supplier }}</td>
             <td class="text-center">{{ purchase.total|floatformat:2 }}</td>
-            <td class="text-center">{{ purchase.date_updated|date:"d-m-Y H:i" }}</td>
+            <td class="text-center" data-order="{{ purchase.date_added|date:'Y-m-d H:i:s' }}">{{ purchase.date_added|date:"d-m-Y H:i" }}</td>
             
             <td class="text-center">
               <a href="{% url 'purchase:purchase_update' purchase.pk %}" class="btn btn-primary btn-sm" title="Editar">
