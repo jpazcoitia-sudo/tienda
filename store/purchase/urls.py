@@ -15,4 +15,5 @@ urlpatterns = [
     path('pagos/', purchase_payment_list, name='payment_list'),
     path('pagar/<int:pk>/', marcar_compra_pagada, name='marcar_pagada'),
     path('purchase/<int:pk>/pagar/', purchase_pagar_view, name='purchase_pagar'),
+    path('api/productos/', api_productos_compra, name='api_productos_compra'),
 ]

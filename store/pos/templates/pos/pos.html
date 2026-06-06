@@ -38,6 +38,7 @@
                             <small class="text-muted">
                                 Deja en blanco para venta sin cliente específico
                                 | <a href="{% url 'customers:customer_create' %}" target="_blank">+ Crear nuevo cliente</a>
+                                | <a href="#" id="btn-refresh-clientes">↻ Actualizar lista</a>
                             </small>
                         </div>
                     </div>
@@ -54,7 +55,7 @@
                 </div>
             </fieldset>
             <fieldset>
-                <legend>Agregar Producto </legend>
+                <legend>Agregar Producto <a href="#" id="btn-refresh-productos" class="text-muted" style="font-size:0.8rem;">↻ Actualizar lista</a></legend>
                 <div class="row align-items-end mb-2">
                     <div class="col-lg-8 col-md-8 col-sm-12">
                         <div class="form-group mb-2">
@@ -533,6 +534,51 @@
         if (pedido_data) {
             cargarPedido(pedido_data);
         }
+        // Actualizar lista de clientes sin recargar la página
+        $('#btn-refresh-clientes').on('click', function(e) {
+            e.preventDefault();
+            var clienteActual = $('#cliente-id').val();
+            $.ajax({
+                url: '{% url "pos:pos-page" %}',
+                method: 'GET',
+                success: function(html) {
+                    var nuevoSelect = $(html).find('#cliente-id');
+                    var opcionesNuevas = nuevoSelect.html();
+                    $('#cliente-id').html(opcionesNuevas);
+                    if (clienteActual) {
+                        $('#cliente-id').val(clienteActual).trigger('change');
+                    }
+                    $('#cliente-id').trigger('change.select2');
+                }
+            });
+        });
+
+        // Actualizar lista de productos sin recargar la página
+        $('#btn-refresh-productos').on('click', function(e) {
+            e.preventDefault();
+            var productoActual = $('#product-id').val();
+            $.ajax({
+                url: '{% url "pos:pos-page" %}',
+                method: 'GET',
+                success: function(html) {
+                    var nuevoSelect = $(html).find('#product-id');
+                    var opcionesNuevas = nuevoSelect.html();
+                    $('#product-id').html(opcionesNuevas);
+                    if (productoActual) {
+                        $('#product-id').val(productoActual);
+                    }
+                    $('#product-id').trigger('change.select2');
+
+                    // Actualizar también el prod_arr con los nuevos productos
+                    var nuevoJson = $(html).find('script').filter(function() {
+                        return $(this).html().indexOf('product_json') > -1;
+                    }).html();
+                    if (nuevoJson) {
+                        eval(nuevoJson);
+                    }
+                }
+            });
+        });
     });
 
     $(document).on('click', '.product_price', function() {

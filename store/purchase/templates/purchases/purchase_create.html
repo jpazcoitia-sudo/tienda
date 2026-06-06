@@ -46,7 +46,7 @@
 
                 <!-- Agregar Productos -->
                 <fieldset class="mb-4">
-                    <legend>Agregar Productos</legend>
+                    <legend>Agregar Productos <a href="#" id="btn-refresh-productos" class="text-muted" style="font-size:0.8rem;">↻ Actualizar lista</a></legend>
                     <div class="row align-items-end">
                         <div class="col-md-4">
                             <div class="form-group mb-3">
@@ -357,6 +357,27 @@
                 alert('Debe seleccionar un proveedor.');
                 return false;
             }
+        });
+
+        // Actualizar lista de productos sin recargar la página
+        $('#btn-refresh-productos').on('click', function(e) {
+            e.preventDefault();
+            $.ajax({
+                url: '{% url "purchase:api_productos_compra" %}',
+                method: 'GET',
+                success: function(data) {
+                    // Actualizar prod_arr
+                    prod_arr = data;
+
+                    // Actualizar select
+                    var opciones = '<option value="" disabled selected>Seleccione un producto</option>';
+                    $.each(data, function(id, producto) {
+                        opciones += '<option value="' + id + '">' + producto.name + '</option>';
+                    });
+                    $('#product-id').html(opciones);
+                    $('#product-id').trigger('change.select2');
+                }
+            });
         });
     });
 </script>

@@ -354,3 +354,16 @@ def purchase_pagar_view(request, pk):
         'purchase': purchase,
     }
     return render(request, 'purchases/purchase_pagar.html', context)
+
+@login_required
+def api_productos_compra(request):
+    """Devuelve lista de productos disponibles para compra en formato JSON."""
+    products = Products.objects.exclude(tipo_venta='fraccionable').order_by('name')
+    products_json = {}
+    for product in products:
+        products_json[product.id] = {
+            'id': product.id,
+            'name': product.name,
+            'cost': float(product.cost),
+        }
+    return JsonResponse(products_json)
