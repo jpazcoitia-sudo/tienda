@@ -3,6 +3,13 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/pos-responsive.css' %}">
+<style>
+    #add_item:focus {
+        outline: 2px dashed #0d6efd;
+        outline-offset: 2px;
+        box-shadow: none;
+    }
+</style>
 {% endblock %}
 
 {% block pageContent %}
@@ -464,8 +471,20 @@
             if (ok) {
                 $('#product-id').val('').trigger('change');
                 $('#product-qty').val(1);
+                // Volver el foco al lector de código de barras
+                setTimeout(function() {
+                    $('#barcode-input').focus();
+                }, 100);
             } else {
                 alert("Producto no definido");
+            }
+        });
+
+        // Al presionar Enter en cantidad, hacer click en Añadir
+        $('#product-qty').on('keypress', function(e) {
+            if (e.which === 13) {
+                e.preventDefault();
+                $('#add_item').click();
             }
         });
 
@@ -578,6 +597,11 @@
                     }
                 }
             });
+        });
+        
+        // Abrir Select2 cuando recibe foco via Tab
+        $('#product-id').on('focus', function() {
+            $(this).select2('open');
         });
     });
 
