@@ -4,13 +4,11 @@
         display: none
     }
     
-    /* Estilos para impresora térmica 58mm */
     @media print {
         @page {
             size: 48mm auto;
             margin: 0mm;
         }
-        
         body {
             margin: 0;
             padding: 1mm 0mm;
@@ -19,12 +17,10 @@
             line-height: 1.2;
             color: #000;
         }
-        
         * {
             font-weight: normal !important;
             color: #000 !important;
         }
-        
         .no-print {
             display: none !important;
         }
@@ -37,16 +33,11 @@
         font-size: 7pt;
         line-height: 1.2;
     }
-    
-    .text-center {
-        text-align: center;
-    }
-    
+    .text-center { text-align: center; }
     .separator {
         border-top: 1px dashed #000;
         margin: 2px 0;
     }
-
     .item-row {
         display: flex;
         justify-content: space-between;
@@ -54,13 +45,11 @@
         width: 100%;
         margin: 1px 0;
     }
-
     .item-qty {
         width: 6mm;
         flex-shrink: 0;
         text-align: left;
     }
-
     .item-name {
         flex: 1;
         overflow: hidden;
@@ -68,13 +57,11 @@
         white-space: nowrap;
         padding: 0 1mm;
     }
-
     .item-price {
         width: 14mm;
         flex-shrink: 0;
         text-align: right;
     }
-
     .item-unit {
         padding-left: 6mm;
         color: #333;
@@ -85,7 +72,6 @@
 
 <div class="container-fluid">
     <div id="outprint">
-        <!-- Encabezado -->
         <div class="text-center">
             <div style="font-size: 9pt; font-weight: bold;">PUNTO DE VENTA</div>
             <div style="font-size: 7pt;">Recibo no oficial</div>
@@ -93,7 +79,6 @@
         
         <div class="separator"></div>
         
-        <!-- Fecha y código -->
         <div style="font-size: 7pt; margin: 2px 0;">
             <div>Fecha: {{ formatted_date }}</div>
             <div>Ticket: {{ transaction.code }}</div>
@@ -101,14 +86,12 @@
         
         <div class="separator"></div>
         
-        <!-- Encabezado tabla -->
         <div class="item-row" style="font-size: 7pt; border-bottom: 1px solid #000; padding-bottom: 1px;">
             <div class="item-qty">Cant</div>
             <div class="item-name">Producto</div>
             <div class="item-price">Total</div>
         </div>
         
-        <!-- Items -->
         {% for item in salesItems %}
         <div style="margin: 1px 0;">
             <div class="item-row">
@@ -122,7 +105,6 @@
         
         <div style="border-top: 1px solid #000; margin: 2px 0;"></div>
         
-        <!-- Totales -->
         <div style="font-size: 7pt;">
             <div class="item-row" style="margin: 1px 0;">
                 <div>TOTAL:</div>
@@ -140,7 +122,6 @@
         
         <div class="separator"></div>
         
-        <!-- Pie -->
         <div class="text-center" style="font-size: 7pt; margin-top: 2px;">
             <div>Gracias por su compra!</div>
         </div>
@@ -150,19 +131,147 @@
     
     <hr class="no-print">
     
-    <!-- Botones (no se imprimen) -->
-    <div class="d-flex w-100 justify-content-end no-print">
-        <button class="btn btn-light bg-gradient border rounded-0 btn-sm me-1" type="button" id="receipt_print">
+    <div class="d-flex w-100 justify-content-end no-print gap-1">
+        <button class="btn btn-success bg-gradient border rounded-0 btn-sm" 
+                type="button" id="receipt_print_qz" style="display:none;">
+            <i class="mdi mdi-printer"></i> Imprimir (QZ)
+        </button>
+        <button class="btn btn-light bg-gradient border rounded-0 btn-sm" 
+                type="button" id="receipt_print">
             <i class="mdi mdi-printer"></i> Imprimir
         </button>
-        <button class="btn btn-secondary bg-gradient border rounded-0 btn-sm" type="button" data-bs-dismiss="modal">
+        <button class="btn btn-secondary bg-gradient border rounded-0 btn-sm" 
+                type="button" data-bs-dismiss="modal">
             <i class="mdi mdi-close"></i> Cerrar
         </button>
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.6/qz-tray.min.js"></script>
 <script>
+    // ── CONFIGURACIÓN ─────────────────────────────────────────
+    const NOMBRE_IMPRESORA = "POS-58"; // Cambiar por el nombre exacto en Windows
+
+    // ── DATOS DEL TICKET ──────────────────────────────────────
+    const ticketData = {
+        fecha: "{{ formatted_date }}",
+        ticket: "{{ transaction.code }}",
+        total: "${{ transaction.grand_total|floatformat:0 }}",
+        recibido: "${{ transaction.tendered_amount|floatformat:0 }}",
+        vuelto: "${{ transaction.amount_change|floatformat:0 }}",
+        items: [
+            {% for item in salesItems %}
+            {
+                qty: "{{ item.qty|floatformat:2 }}",
+                name: "{{ item.product|truncatechars:18 }}",
+                price: "${{ item.price|floatformat:0 }}",
+                total: "${{ item.total|floatformat:0 }}"
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ]
+    };
+
+    // ── FUNCIONES ESC/POS ─────────────────────────────────────
+    function centrar(texto, ancho) {
+        ancho = ancho || 32;
+        var espacios = Math.max(0, Math.floor((ancho - texto.length) / 2));
+        return ' '.repeat(espacios) + texto;
+    }
+
+    function columnas(izq, der, ancho) {
+        ancho = ancho || 32;
+        var espacios = Math.max(1, ancho - izq.length - der.length);
+        return izq + ' '.repeat(espacios) + der;
+    }
+
+    function truncar(texto, max) {
+        return texto.length > max ? texto.substring(0, max - 1) + '.' : texto;
+    }
+
+    function armarTicket() {
+        var L = 32; // ancho en caracteres para 58mm
+        var lineas = [];
+
+        // Encabezado
+        lineas.push('\x1B\x61\x01'); // centrar
+        lineas.push('\x1B\x21\x08'); // doble alto
+        lineas.push('PUNTO DE VENTA\n');
+        lineas.push('\x1B\x21\x00'); // normal
+        lineas.push('Recibo no oficial\n');
+        lineas.push('\x1B\x61\x00'); // izquierda
+        lineas.push('--------------------------------\n');
+
+        // Fecha y ticket
+        lineas.push('Fecha: ' + ticketData.fecha + '\n');
+        lineas.push('Ticket: ' + ticketData.ticket + '\n');
+        lineas.push('--------------------------------\n');
+
+        // Encabezado columnas
+        lineas.push(columnas('Cant  Producto', 'Total', L) + '\n');
+        lineas.push('--------------------------------\n');
+
+        // Items
+        ticketData.items.forEach(function(item) {
+            var nombreCorto = truncar(item.name, 18);
+            var lineaProducto = item.qty + '  ' + nombreCorto;
+            lineas.push(columnas(lineaProducto, item.total, L) + '\n');
+            lineas.push('  @ ' + item.price + ' c/u\n');
+        });
+
+        lineas.push('--------------------------------\n');
+
+        // Totales
+        lineas.push(columnas('TOTAL:', ticketData.total, L) + '\n');
+        lineas.push(columnas('Recibido:', ticketData.recibido, L) + '\n');
+        lineas.push(columnas('Vuelto:', ticketData.vuelto, L) + '\n');
+        lineas.push('--------------------------------\n');
+
+        // Pie
+        lineas.push('\x1B\x61\x01'); // centrar
+        lineas.push('Gracias por su compra!\n');
+        lineas.push('\x1B\x61\x00'); // izquierda
+
+        // Avance y corte
+        lineas.push('\n\n\n');
+        lineas.push('\x1D\x56\x42\x00'); // corte parcial
+
+        return lineas;
+    }
+
+    // ── QZ TRAY ───────────────────────────────────────────────
     $(function() {
+        // Verificar si QZ Tray está disponible
+        if (typeof qz !== 'undefined') {
+            qz.websocket.connect().then(function() {
+                return qz.printers.find(NOMBRE_IMPRESORA);
+            }).then(function(printer) {
+                if (printer) {
+                    $('#receipt_print_qz').show();
+                }
+            }).catch(function(err) {
+                console.log('QZ Tray no disponible:', err);
+            });
+        }
+
+        // Imprimir con QZ Tray (ESC/POS)
+        $('#receipt_print_qz').click(function() {
+            var config = qz.configs.create(NOMBRE_IMPRESORA, {
+                encoding: 'Cp1252',
+                copies: 1
+            });
+
+            var data = armarTicket().map(function(linea) {
+                return { type: 'raw', format: 'plain', data: linea };
+            });
+
+            qz.print(config, data).then(function() {
+                console.log('Impresión QZ exitosa');
+            }).catch(function(err) {
+                alert('Error al imprimir: ' + err);
+            });
+        });
+
+        // Imprimir modo Windows (fallback)
         $('#receipt_print').click(function() {
             var head = $('head').clone();
             var p = $('#outprint').clone();
@@ -170,10 +279,7 @@
             
             head.append(`
                 <style>
-                    @page {
-                        size: 48mm auto;
-                        margin: 0mm;
-                    }
+                    @page { size: 48mm auto; margin: 0mm; }
                     body {
                         margin: 0;
                         padding: 1mm 0mm;
@@ -182,61 +288,19 @@
                         line-height: 1.2;
                         color: #000 !important;
                         background-color: white !important;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
                     }
-                    * {
-                        font-weight: normal !important;
-                        color: #000 !important;
-                    }
-                    hr, .separator {
-                        border-color: #000 !important;
-                    }
-                    #outprint {
-                        width: 46mm;
-                        margin: 0 auto;
-                        font-family: 'Courier New', monospace;
-                        font-size: 7pt;
-                        line-height: 1.2;
-                    }
-                    .item-row {
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: baseline;
-                        width: 100%;
-                        margin: 1px 0;
-                    }
-                    .item-qty {
-                        width: 6mm;
-                        flex-shrink: 0;
-                        text-align: left;
-                    }
-                    .item-name {
-                        flex: 1;
-                        overflow: hidden;
-                        text-overflow: ellipsis;
-                        white-space: nowrap;
-                        padding: 0 1mm;
-                    }
-                    .item-price {
-                        width: 14mm;
-                        flex-shrink: 0;
-                        text-align: right;
-                    }
-                    .item-unit {
-                        padding-left: 6mm;
-                        font-size: 6.5pt;
-                        margin-bottom: 1px;
-                    }
-                    .separator {
-                        border-top: 1px dashed #000;
-                        margin: 2px 0;
-                    }
+                    * { font-weight: normal !important; color: #000 !important; }
+                    #outprint { width: 46mm; margin: 0 auto; font-family: 'Courier New', monospace; font-size: 7pt; line-height: 1.2; }
+                    .item-row { display: flex; justify-content: space-between; align-items: baseline; width: 100%; margin: 1px 0; }
+                    .item-qty { width: 6mm; flex-shrink: 0; text-align: left; }
+                    .item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 1mm; }
+                    .item-price { width: 14mm; flex-shrink: 0; text-align: right; }
+                    .item-unit { padding-left: 6mm; font-size: 6.5pt; margin-bottom: 1px; }
+                    .separator { border-top: 1px dashed #000; margin: 2px 0; }
                 </style>
             `);
             
             el.append(head);
-            el.find('title').text("Recibo - Vista Impresión");
             el.append(p);
             
             start_loader();
