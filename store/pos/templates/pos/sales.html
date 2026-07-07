@@ -69,7 +69,7 @@
         $('.view-data').click(function() {
             uni_modal("Recibo de Transaccion", "{% url 'pos:receipt-modal' %}?id=" + $(this).attr('data-id'))
         })
-        $('.delete-data').click(function() {
+        $(document).on('click', '.delete-data', function() {
             _conf("Esta seguro de eliminar <b>" + $(this).attr('data-code') + "</b> del registro?", "delete_sale", [$(this).attr('data-id')])
         })
 
