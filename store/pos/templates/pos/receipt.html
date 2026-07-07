@@ -6,20 +6,16 @@
     
     @media print {
         @page {
-            size: 48mm auto;
+            size: 80mm auto;
             margin: 0mm;
         }
         body {
             margin: 0;
             padding: 1mm 0mm;
             font-family: 'Courier New', monospace;
-            font-size: 7pt;
-            line-height: 1.2;
+            font-size: 9pt;
+            line-height: 1.3;
             color: #000;
-        }
-        * {
-            font-weight: normal !important;
-            color: #000 !important;
         }
         .no-print {
             display: none !important;
@@ -27,11 +23,11 @@
     }
     
     #outprint {
-        width: 46mm;
+        width: 72mm;
         margin: 0 auto;
         font-family: 'Courier New', monospace;
-        font-size: 7pt;
-        line-height: 1.2;
+        font-size: 9pt;
+        line-height: 1.3;
     }
     .text-center { text-align: center; }
     .separator {
@@ -46,7 +42,7 @@
         margin: 1px 0;
     }
     .item-qty {
-        width: 6mm;
+        width: 10mm;
         flex-shrink: 0;
         text-align: left;
     }
@@ -58,14 +54,14 @@
         padding: 0 1mm;
     }
     .item-price {
-        width: 14mm;
+        width: 22mm;
         flex-shrink: 0;
         text-align: right;
     }
     .item-unit {
-        padding-left: 6mm;
+        padding-left: 10mm;
         color: #333;
-        font-size: 6.5pt;
+        font-size: 8pt;
         margin-bottom: 1px;
     }
 </style>
@@ -74,19 +70,19 @@
     <div id="outprint">
         <div class="text-center">
             <div style="font-size: 9pt; font-weight: bold;">PUNTO DE VENTA</div>
-            <div style="font-size: 7pt;">Recibo no oficial</div>
+            <div style="font-size: 9pt;">Recibo no oficial</div>
         </div>
         
         <div class="separator"></div>
         
-        <div style="font-size: 7pt; margin: 2px 0;">
+        <div style="font-size: 9pt; margin: 2px 0;">
             <div>Fecha: {{ formatted_date }}</div>
             <div>Ticket: {{ transaction.code }}</div>
         </div>
         
         <div class="separator"></div>
         
-        <div class="item-row" style="font-size: 7pt; border-bottom: 1px solid #000; padding-bottom: 1px;">
+        <div class="item-row" style="font-size: 9pt; border-bottom: 1px solid #000; padding-bottom: 1px;">
             <div class="item-qty">Cant</div>
             <div class="item-name">Producto</div>
             <div class="item-price">Total</div>
@@ -105,7 +101,7 @@
         
         <div style="border-top: 1px solid #000; margin: 2px 0;"></div>
         
-        <div style="font-size: 7pt;">
+        <div style="font-size: 9pt;">
             <div class="item-row" style="margin: 1px 0;">
                 <div>TOTAL:</div>
                 <div style="font-size: 9pt;">${{ transaction.grand_total|floatformat:0 }}</div>
@@ -122,7 +118,7 @@
         
         <div class="separator"></div>
         
-        <div class="text-center" style="font-size: 7pt; margin-top: 2px;">
+        <div class="text-center" style="font-size: 9pt; margin-top: 2px;">
             <div>Gracias por su compra!</div>
         </div>
         
@@ -150,7 +146,7 @@
 <script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.6/qz-tray.min.js"></script>
 <script>
     // ── CONFIGURACIÓN ─────────────────────────────────────────
-    const NOMBRE_IMPRESORA = "POS-58"; // Cambiar por el nombre exacto en Windows
+    const NOMBRE_IMPRESORA = "EPSON TM-T20IIIL"; // Verificar nombre exacto en Windows
 
     // ── DATOS DEL TICKET ──────────────────────────────────────
     const ticketData = {
@@ -163,7 +159,7 @@
             {% for item in salesItems %}
             {
                 qty: "{{ item.qty|floatformat:2 }}",
-                name: "{{ item.product|truncatechars:18 }}",
+                name: "{{ item.product|truncatechars:28 }}",
                 price: "${{ item.price|floatformat:0 }}",
                 total: "${{ item.total|floatformat:0 }}"
             }{% if not forloop.last %},{% endif %}
@@ -189,7 +185,7 @@
     }
 
     function armarTicket() {
-        var L = 32; // ancho en caracteres para 58mm
+        var L = 42; // ancho en caracteres para 80mm
         var lineas = [];
 
         // Encabezado
@@ -279,23 +275,23 @@
             
             head.append(`
                 <style>
-                    @page { size: 48mm auto; margin: 0mm; }
+                    @page { size: 80mm auto; margin: 0mm; }
                     body {
                         margin: 0;
                         padding: 1mm 0mm;
                         font-family: 'Courier New', monospace;
-                        font-size: 7pt;
+                        font-size: 9pt;
                         line-height: 1.2;
                         color: #000 !important;
                         background-color: white !important;
                     }
                     * { font-weight: normal !important; color: #000 !important; }
-                    #outprint { width: 46mm; margin: 0 auto; font-family: 'Courier New', monospace; font-size: 7pt; line-height: 1.2; }
+                    #outprint { width: 72mm; margin: 0 auto; font-family: 'Courier New', monospace; font-size: 9pt; line-height: 1.3; }
                     .item-row { display: flex; justify-content: space-between; align-items: baseline; width: 100%; margin: 1px 0; }
                     .item-qty { width: 6mm; flex-shrink: 0; text-align: left; }
                     .item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 1mm; }
                     .item-price { width: 14mm; flex-shrink: 0; text-align: right; }
-                    .item-unit { padding-left: 6mm; font-size: 6.5pt; margin-bottom: 1px; }
+                    .item-unit { padding-left: 10mm; font-size: 8pt; margin-bottom: 1px; }
                     .separator { border-top: 1px dashed #000; margin: 2px 0; }
                 </style>
             `);
