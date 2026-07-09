@@ -129,8 +129,8 @@
     
     <div class="d-flex w-100 justify-content-end no-print gap-1">
         <button class="btn btn-success bg-gradient border rounded-0 btn-sm" 
-                type="button" id="receipt_print_qz" style="display:none;">
-            <i class="mdi mdi-printer"></i> Imprimir (QZ)
+                type="button" id="receipt_print_local" style="display:none;">
+            <i class="mdi mdi-printer"></i> Imprimir
         </button>
         <button class="btn btn-light bg-gradient border rounded-0 btn-sm" 
                 type="button" id="receipt_print">
@@ -143,10 +143,10 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.6/qz-tray.min.js"></script>
 <script>
-// ── CONFIGURACIÓN ─────────────────────────────────────────
-    const NOMBRE_IMPRESORA = "EPSON TM-T20IIIL"; // Verificar nombre exacto en Windows
+    // ── SERVIDOR DE IMPRESION LOCAL ───────────────────────────
+    const SERVIDOR_IMPRESION = "http://localhost:9100";
+
     // ── DATOS DEL TICKET ──────────────────────────────────────
     const ticketData = {
         fecha: "{{ formatted_date }}",
@@ -233,36 +233,47 @@
         return lineas;
     }
 
-    // ── QZ TRAY ───────────────────────────────────────────────
+    // ── SERVIDOR DE IMPRESION LOCAL ───────────────────────────
     $(function() {
-        // Verificar si QZ Tray está disponible
-        if (typeof qz !== 'undefined') {
-            qz.websocket.connect().then(function() {
-                return qz.printers.find(NOMBRE_IMPRESORA);
-            }).then(function(printer) {
-                if (printer) {
-                    $('#receipt_print_qz').show();
+        // Verificar si el servidor de impresion local esta corriendo
+        fetch(SERVIDOR_IMPRESION + "/estado")
+            .then(function(resp) { return resp.json(); })
+            .then(function(data) {
+                if (data.estado === "ok") {
+                    // Servidor activo: mostrar boton directo, ocultar el de Chrome
+                    $('#receipt_print_local').show();
+                    $('#receipt_print').hide();
                 }
-            }).catch(function(err) {
-                console.log('QZ Tray no disponible:', err);
-            });
-        }
-
-        // Imprimir con QZ Tray (ESC/POS)
-        $('#receipt_print_qz').click(function() {
-            var config = qz.configs.create(NOMBRE_IMPRESORA, {
-                encoding: 'Cp1252',
-                copies: 1
+            })
+            .catch(function(err) {
+                console.log('Servidor de impresion local no detectado');
             });
 
-            var data = armarTicket().map(function(linea) {
-                return { type: 'raw', format: 'plain', data: linea };
-            });
+        // Imprimir directo via servidor local (ESC/POS)
+        $('#receipt_print_local').click(function() {
+            var boton = $(this);
+            boton.prop('disabled', true).html('<i class="mdi mdi-loading"></i> Imprimiendo...');
 
-            qz.print(config, data).then(function() {
-                console.log('Impresión QZ exitosa');
-            }).catch(function(err) {
-                alert('Error al imprimir: ' + err);
+            fetch(SERVIDOR_IMPRESION + "/imprimir", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(ticketData)
+            })
+            .then(function(resp) { return resp.json(); })
+            .then(function(data) {
+                if (data.estado === "ok") {
+                    boton.html('<i class="mdi mdi-check"></i> Impreso');
+                    setTimeout(function() {
+                        boton.prop('disabled', false).html('<i class="mdi mdi-printer"></i> Imprimir');
+                    }, 1500);
+                } else {
+                    alert("Error al imprimir: " + data.mensaje);
+                    boton.prop('disabled', false).html('<i class="mdi mdi-printer"></i> Imprimir');
+                }
+            })
+            .catch(function(err) {
+                alert("No se pudo conectar con la impresora. Verifique que el servidor de impresion este corriendo.");
+                boton.prop('disabled', false).html('<i class="mdi mdi-printer"></i> Imprimir');
             });
         });
 
