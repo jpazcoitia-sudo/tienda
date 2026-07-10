@@ -129,12 +129,12 @@
     
     <div class="d-flex w-100 justify-content-end no-print gap-1">
         <button class="btn btn-success bg-gradient border rounded-0 btn-sm" 
-                type="button" id="receipt_print_local" style="display:none;">
+                type="button" id="receipt_print_local">
             <i class="mdi mdi-printer"></i> Imprimir
         </button>
         <button class="btn btn-light bg-gradient border rounded-0 btn-sm" 
-                type="button" id="receipt_print">
-            <i class="mdi mdi-printer"></i> Imprimir
+                type="button" id="receipt_print" style="display:none;">
+            <i class="mdi mdi-printer"></i> Imprimir (Chrome)
         </button>
         <button class="btn btn-secondary bg-gradient border rounded-0 btn-sm" 
                 type="button" data-bs-dismiss="modal">
@@ -234,30 +234,20 @@
     }
 
     // ── SERVIDOR DE IMPRESION LOCAL ───────────────────────────
-    $(function() {
-        // Verificar si el servidor de impresion local esta corriendo
-        fetch(SERVIDOR_IMPRESION + "/estado")
-            .then(function(resp) { return resp.json(); })
-            .then(function(data) {
-                if (data.estado === "ok") {
-                    // Servidor activo: mostrar boton directo, ocultar el de Chrome
-                    $('#receipt_print_local').show();
-                    $('#receipt_print').hide();
-                }
-            })
-            .catch(function(err) {
-                console.log('Servidor de impresion local no detectado');
-            });
+    (function() {
+        // Datos de ESTE ticket (se capturan al abrir el modal)
+        var datosTicketActual = ticketData;
 
         // Imprimir directo via servidor local (ESC/POS)
-        $('#receipt_print_local').click(function() {
+        // Se usa .off().on() para limpiar handlers de tickets anteriores
+        $(document).off('click', '#receipt_print_local').on('click', '#receipt_print_local', function() {
             var boton = $(this);
             boton.prop('disabled', true).html('<i class="mdi mdi-loading"></i> Imprimiendo...');
 
             fetch(SERVIDOR_IMPRESION + "/imprimir", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(ticketData)
+                body: JSON.stringify(datosTicketActual)
             })
             .then(function(resp) { return resp.json(); })
             .then(function(data) {
@@ -322,5 +312,5 @@
                 }, 250);
             }, 300);
         });
-    });
+    })();
 </script>
