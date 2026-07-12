@@ -22,4 +22,5 @@ urlpatterns = [
     path('guardar-cambios-precios/', views.guardar_cambios_precios, name='guardar_cambios_precios'),
     path('actualizacion-masiva-proveedor/', views.actualizacion_masiva_proveedor, name='actualizacion_masiva_proveedor'),
     path('api/producto-costo/<int:pk>/', views.api_producto_costo, name='api_producto_costo'),
+    path('api/asignar-codigo-barras/', views.asignar_codigo_barras, name='asignar_codigo_barras'),
 ]

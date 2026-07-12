@@ -46,6 +46,7 @@
         <thead>
           <tr>
             <th>Código</th>
+            <th class="text-center">Cód. Barras</th>
             <th>Nombre de Producto</th>
             <th>Categoría</th>
             <th>Costo</th>
@@ -61,7 +62,26 @@
           {% for product in products %}
             <tr>
               <td class="text-center">{{ product.code }}</td>
-              
+
+              <td class="text-center">
+                {% if product.codigo_barras %}
+                  <a href="#" class="btn-asignar-codigo" 
+                     data-id="{{ product.pk }}" 
+                     data-nombre="{{ product.name }}"
+                     data-codigo="{{ product.codigo_barras }}"
+                     title="Click para cambiar el código">
+                    {{ product.codigo_barras }}
+                  </a>
+                {% else %}
+                  <button class="btn btn-warning btn-sm btn-asignar-codigo" 
+                          data-id="{{ product.pk }}" 
+                          data-nombre="{{ product.name }}"
+                          data-codigo="">
+                    Asignar
+                  </button>
+                {% endif %}
+              </td>
+
               <td class="link-cell">
                 <a href="{% url 'inventory:product_detail' product.pk %}">{{ product.name }}</a>
               </td>
@@ -104,6 +124,29 @@
 {% endblock %}
 
 {% block ScriptBlock %}
+  <!-- Modal para asignar codigo de barras -->
+  <div class="modal fade" id="modalCodigoBarras" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content rounded-0">
+        <div class="modal-header">
+          <h5 class="modal-title">Asignar código de barras</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2">Producto: <strong id="cb-nombre-producto"></strong></p>
+          <label class="form-label">Escaneá el código de barras:</label>
+          <input type="text" class="form-control form-control-lg text-center" id="cb-input-codigo" 
+                 placeholder="Pistoleá aquí..." autocomplete="off">
+          <input type="hidden" id="cb-producto-id">
+          <div id="cb-mensaje" class="mt-2"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary rounded-0" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     $(document).ready(function() {
       $('#miTabla').DataTable({
@@ -113,9 +156,67 @@
         "responsive": true,
         "lengthChange": false,
         "autoWidth": false,
-        "order": [[8, "desc"]], 
+        "order": [[9, "desc"]], 
         "buttons": ['copy', 'csv', 'excel', 'pdf', 'print', 'colvis']
       }).buttons().container().appendTo('#miTabla_wrapper .col-md-6:eq(0)');
+
+      // Abrir modal al clickear "Asignar" o un codigo existente
+      $(document).on('click', '.btn-asignar-codigo', function(e) {
+        e.preventDefault();
+        var id = $(this).data('id');
+        var nombre = $(this).data('nombre');
+        var codigoActual = $(this).data('codigo');
+
+        $('#cb-producto-id').val(id);
+        $('#cb-nombre-producto').text(nombre);
+        $('#cb-input-codigo').val(codigoActual);
+        $('#cb-mensaje').html('');
+
+        $('#modalCodigoBarras').modal('show');
+
+        // Poner el foco en el input despues de que el modal se muestre
+        setTimeout(function() {
+          $('#cb-input-codigo').focus().select();
+        }, 500);
+      });
+
+      // Al presionar Enter en el input (el pistoleo termina con Enter), guardar
+      $('#cb-input-codigo').on('keypress', function(e) {
+        if (e.which === 13) {
+          e.preventDefault();
+          guardarCodigo();
+        }
+      });
+
+      function guardarCodigo() {
+        var id = $('#cb-producto-id').val();
+        var codigo = $('#cb-input-codigo').val().trim();
+
+        if (codigo === '') {
+          $('#cb-mensaje').html('<span class="text-danger">El código no puede estar vacío.</span>');
+          return;
+        }
+
+        $.ajax({
+          url: '{% url "inventory:asignar_codigo_barras" %}',
+          method: 'POST',
+          headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+          data: { producto_id: id, codigo: codigo },
+          dataType: 'json',
+          success: function(resp) {
+            if (resp.status === 'ok') {
+              $('#cb-mensaje').html('<span class="text-success">Guardado. Recargando...</span>');
+              setTimeout(function() { location.reload(); }, 400);
+            } else {
+              $('#cb-mensaje').html('<span class="text-danger">' + resp.mensaje + '</span>');
+              $('#cb-input-codigo').focus().select();
+            }
+          },
+          error: function() {
+            $('#cb-mensaje').html('<span class="text-danger">Error al guardar. Intentá de nuevo.</span>');
+          }
+        });
+      }
     });
   </script>
 {% endblock %}

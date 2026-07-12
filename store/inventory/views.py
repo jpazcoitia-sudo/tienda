@@ -430,5 +430,36 @@ def api_producto_costo(request, pk):
         'cost': float(producto.cost),
         'name': producto.name,
     })
+
+@login_required
+def asignar_codigo_barras(request):
+    """Asigna o actualiza el codigo de barras de un producto via AJAX."""
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'mensaje': 'Método no permitido'}, status=405)
+
+    producto_id = request.POST.get('producto_id')
+    codigo = (request.POST.get('codigo') or '').strip()
+
+    if not codigo:
+        return JsonResponse({'status': 'error', 'mensaje': 'El código no puede estar vacío'})
+
+    try:
+        producto = Products.objects.get(id=producto_id)
+    except Products.DoesNotExist:
+        return JsonResponse({'status': 'error', 'mensaje': 'Producto no encontrado'})
+
+    # Verificar que el codigo no este usado por otro producto
+    existe = Products.objects.filter(codigo_barras=codigo).exclude(id=producto_id).first()
+    if existe:
+        return JsonResponse({
+            'status': 'error',
+            'mensaje': 'Ese código ya lo usa: ' + existe.name
+        })
+
+    producto.codigo_barras = codigo
+    producto.codigo_tipo = Products.CODIGO_TIPO_EXTERNO
+    producto.save(update_fields=['codigo_barras', 'codigo_tipo'])
+
+    return JsonResponse({'status': 'ok', 'mensaje': 'Código asignado correctamente'})
         
     

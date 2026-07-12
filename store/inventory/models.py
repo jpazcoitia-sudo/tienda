@@ -136,7 +136,7 @@ class Products(models.Model):
     codigo_tipo = models.CharField(
         max_length=10,
         choices=CODIGO_TIPO_CHOICES,
-        default=CODIGO_TIPO_INTERNO,
+        default=CODIGO_TIPO_EXTERNO,
         verbose_name='Tipo de Código',
         help_text='Externo: viene del fabricante. Interno: generado por el sistema.'
     )
