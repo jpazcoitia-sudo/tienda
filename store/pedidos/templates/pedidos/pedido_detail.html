@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load formato %}
 
 {% block pageContent %}
 <div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
@@ -150,17 +151,17 @@
                     {% for item in pedido.items.all %}
                     <tr>
                         <td>{{ item.product.name }}</td>
-                        <td class="text-center">{{ item.cantidad|floatformat:2 }}</td>
-                        <td class="text-end">AR$ {{ item.precio_unitario|floatformat:2 }}</td>
-                        <td class="text-end">AR$ {{ item.total|floatformat:2 }}</td>
+                        <td class="text-center">{{ item.cantidad|cantidad }}</td>
+                        <td class="text-end">{{ item.precio_unitario|pesos }}</td>
+                        <td class="text-end">{{ item.total|pesos }}</td>
                         <td class="text-center">
                             {% if item.product.cantidad >= item.cantidad %}
                                 <span class="badge bg-success">
-                                    {{ item.product.cantidad|floatformat:2 }}
+                                    {{ item.product.cantidad|cantidad }}
                                 </span>
                             {% else %}
                                 <span class="badge bg-danger">
-                                    {{ item.product.cantidad|floatformat:2 }} ⚠️
+                                    {{ item.product.cantidad|cantidad }} ⚠️
                                 </span>
                             {% endif %}
                         </td>
@@ -170,7 +171,7 @@
                 <tfoot class="bg-light">
                     <tr>
                         <th colspan="3" class="text-end">TOTAL:</th>
-                        <th class="text-end">AR$ {{ pedido.total|floatformat:2 }}</th>
+                        <th class="text-end">{{ pedido.total|pesos }}</th>
                         <th></th>
                     </tr>
                 </tfoot>

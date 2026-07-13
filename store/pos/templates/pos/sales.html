@@ -1,4 +1,4 @@
-{% extends "base.html" %} {% load humanize %} {% block pageContent %}
+{% extends "base.html" %} {% load humanize %} {% load formato %} {% block pageContent %}
 <div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
     <div class="mdc-card py-2">
         <div class="d-flex justify-content-between align-items-center">
@@ -28,13 +28,13 @@
                         <td class="px-2 py-1 text-rigth">
                             {% if sale.products_list %}
                                 {% for product, quantity in sale.products_list.items %}
-                                    {{ product|capfirst }}  -  {{ quantity|floatformat:"-2" }}<br>
+                                    {{ product|capfirst }}  -  {{ quantity|cantidad }}<br>
                                 {% endfor %}
                             {% endif %}
                         </td>
-                        <td class="px-2 py-1 text-center">{{ sale.grand_total|floatformat:2|intcomma }} AR$</td>
+                        <td class="px-2 py-1 text-center">{{ sale.grand_total|pesos }}</td>
 
-                        <td class="px-2 py-1 text-center">{{ sale.total_items_sold|floatformat:"-2" }}</td>
+                        <td class="px-2 py-1 text-center">{{ sale.total_items_sold|cantidad }}</td>
                         <td class="px-2 py-1 text-center">
                             <button class="mdc-button mdc-button--raised p-1 icon-button filled-button--light mdc-ripple-upgraded view-data" type="button" data-id="{{ sale.id }}" title="Vista Recibo">
                                 <i class="material-icons mdc-button__icon">receipt</i>

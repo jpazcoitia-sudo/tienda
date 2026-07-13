@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load formato %}
 
 {% block pageContent %}
 <div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
@@ -73,7 +74,7 @@
             <h5 class="card-title">Estadísticas</h5>
             <div class="mb-3">
                 <h6 class="text-muted">Total Facturado</h6>
-                <h3 class="text-primary">AR$ {{ total_facturado|floatformat:2 }}</h3>
+                <h3 class="text-primary">{{ total_facturado|pesos }}</h3>
             </div>
             <div class="mb-3">
                 <h6 class="text-muted">Cantidad de Ventas</h6>
@@ -141,9 +142,9 @@
             <div class="mb-3 p-2 rounded d-inline-block {% if saldo < 0 %}bg-danger bg-opacity-10{% else %}bg-success bg-opacity-10{% endif %}">
                 <h6 class="text-dark mb-0">Saldo Actual:
                     {% if saldo < 0 %}
-                        <span class="text-white fw-bold">AR$ {{ saldo|floatformat:2 }} (Debe)</span>
+                        <span class="text-white fw-bold">{{ saldo|pesos }} (Debe)</span>
                     {% else %}
-                        <span class="text-white fw-bold">AR$ {{ saldo|floatformat:2 }} (Al día)</span>
+                        <span class="text-white fw-bold">{{ saldo|pesos }} (Al día)</span>
                     {% endif %}
                 </h6>
             </div>
@@ -175,9 +176,9 @@
                             <td>{{ mov.get_forma_pago_display|default:"-" }}</td>
                             <td class="text-end">
                                 {% if mov.tipo == 'venta' %}
-                                    <span class="text-danger">-AR$ {{ mov.monto|floatformat:2 }}</span>
+                                    <span class="text-danger">-{{ mov.monto|pesos }}</span>
                                 {% else %}
-                                    <span class="text-success">+AR$ {{ mov.monto|floatformat:2 }}</span>
+                                    <span class="text-success">+{{ mov.monto|pesos }}</span>
                                 {% endif %}
                             </td>
                             <td>{{ mov.notas|default:"-" }}</td>
@@ -214,7 +215,7 @@
                         {% for venta in ventas %}
                         <tr>
                             <td>{{ venta.date_added|date:"d/m/Y H:i" }}</td>
-                            <td>AR$ {{ venta.grand_total|floatformat:2 }}</td>
+                            <td>{{ venta.grand_total|pesos }}</td>
                             <td>{{ venta.forma_pago|default:"-" }}</td>
                             <td><span class="badge bg-success">Completada</span></td>
                             <td>
@@ -248,7 +249,7 @@
                 <div class="modal-body">
                     {% if saldo < 0 %}
                     <div class="alert alert-warning">
-                        Saldo pendiente: AR$ {{ saldo|floatformat:2 }}
+                        Saldo pendiente: {{ saldo|pesos }}
                     </div>
                     {% endif %}
                     <div class="mb-3">

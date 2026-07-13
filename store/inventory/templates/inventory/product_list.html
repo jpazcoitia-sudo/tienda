@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load formato %}
 
 {% block pageContent %}
 <style>
@@ -91,10 +92,10 @@
                 </a>
               </td>
 
-              <td class="text-center">AR$ {{ product.cost|floatformat:2 }}</td>
-              <td class="text-center">AR$ {{ product.precio_mayorista|floatformat:2 }}</td>
-              <td class="text-center">AR$ {{ product.precio_minorista|floatformat:2 }}</td>
-              <td class="text-center">{{ product.quantity|floatformat:"-2" }}</td>
+              <td class="text-center">{{ product.cost|pesos }}</td>
+              <td class="text-center">{{ product.precio_mayorista|pesos }}</td>
+              <td class="text-center">{{ product.precio_minorista|pesos }}</td>
+              <td class="text-center">{{ product.quantity|cantidad }}</td>
               
               <td class="text-center">
                 {% if product.status == product.STATUS_ACTIVE %}

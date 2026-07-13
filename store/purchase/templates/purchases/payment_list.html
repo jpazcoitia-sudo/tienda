@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load humanize %}
+{% load formato %}
 
 {% block pageContent %}
 <div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
@@ -30,7 +31,7 @@
             <td>{{ purchase.date_added|date:"d/m/Y" }}</td>
             <td>{{ purchase.supplier.name }}</td>
             <td>{{ purchase.numero_comprobante|default:"-" }}</td>
-            <td class="text-end">AR$ {{ purchase.total|floatformat:2 }}</td>
+            <td class="text-end">{{ purchase.total|pesos }}</td>
             <td>
               <span class="badge bg-{{ purchase.get_estado_pago_badge_class }}">
                 {{ purchase.get_estado_pago }}

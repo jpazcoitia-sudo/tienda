@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load formato %}
 
 {% block pageContent %}
 <div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
@@ -125,7 +126,7 @@
                                 <span class="text-muted">No especificada</span>
                             {% endif %}
                         </td>
-                        <td>AR$ {{ pedido.total|floatformat:2 }}</td>
+                        <td>{{ pedido.total|pesos }}</td>
                         <td>
                             <a href="{% url 'pedidos:pedido_detail' pedido.pk %}" 
                                class="btn btn-sm btn-info" title="Ver Detalle">

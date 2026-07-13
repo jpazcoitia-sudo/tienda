@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load formato %}
 
 {% block pageContent %}
 <style>
@@ -41,7 +42,7 @@
           {% for purchase in purchases %}
           <tr>
             <td class="text-center">{{ purchase.supplier }}</td>
-            <td class="text-center">{{ purchase.total|floatformat:2 }}</td>
+            <td class="text-center">{{ purchase.total|pesos }}</td>
             <td class="text-center" data-order="{{ purchase.date_added|date:'Y-m-d H:i:s' }}">{{ purchase.date_added|date:"d-m-Y H:i" }}</td>
             
             <td class="text-center">
