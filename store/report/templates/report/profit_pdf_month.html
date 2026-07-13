@@ -1,3 +1,4 @@
+{% load formato %}
 <!DOCTYPE html>
 <html>
 
@@ -149,11 +150,11 @@
                 {% for product in sale.products_list %}
                 <tr>
                     
-                    <td>{{ product.product_name }} - {{ product.cost_per_unit|floatformat:2|intcomma }} AR$</td>
-                    <td>{{ sale.costo_total|floatformat:2|intcomma }} AR$ - {{ product.total_qty_vendida }} unidades</td>
-                    <td>{{ product.product_ganancia|floatformat:2|intcomma }} AR$ </td>
-                    <td>{{ product.total_gasto_compras|floatformat:2|intcomma }}  AR$ - {{ product.total_qty_comprada }} unidades</td>
-                    <td>{{ product.ganancia_bruta|floatformat:2|intcomma }} AR$</td> 
+                    <td>{{ product.product_name }} - {{ product.cost_per_unit|pesos }}</td>
+                    <td>{{ sale.costo_total|pesos }} - {{ product.total_qty_vendida }} unidades</td>
+                    <td>{{ product.product_ganancia|pesos }} </td>
+                    <td>{{ product.total_gasto_compras|pesos }} - {{ product.total_qty_comprada }} unidades</td>
+                    <td>{{ product.ganancia_bruta|pesos }}</td> 
                     
                 </tr>
                 {% endfor %}
@@ -164,10 +165,10 @@
         
         <div class="summary">
             <h3>Resumen General</h3>
-            <p>Total de Ventas: {{ total_ingresos|floatformat:2|intcomma }} AR$</p>
-            <p>Total de Costos: {{ total_costos|floatformat:2|intcomma }} AR$</p>
-            <p>Ganancias Netas Por Ventas: {{ total_ganancia|floatformat:2|intcomma }} AR$</p>
-            <p>Utilidades(Ganancias/Perdidas): {{ total_utilidades|floatformat:2|intcomma }} AR$</p>
+            <p>Total de Ventas: {{ total_ingresos|pesos }}</p>
+            <p>Total de Costos: {{ total_costos|pesos }}</p>
+            <p>Ganancias Netas Por Ventas: {{ total_ganancia|pesos }}</p>
+            <p>Utilidades(Ganancias/Perdidas): {{ total_utilidades|pesos }}</p>
         </div>
     </div>
     <footer>

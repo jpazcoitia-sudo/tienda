@@ -1,3 +1,4 @@
+{% load formato %}
 <!-- sales_pdf_year.html -->
 <!DOCTYPE html>
 <html>
@@ -156,7 +157,7 @@
                         {% endfor %}
                         {% endif %}
                     </td>
-                    <td class="report-cell report-cell-total">{{ purchase.grand_total|floatformat:2 }} AR$</td>
+                    <td class="report-cell report-cell-total">{{ purchase.grand_total|pesos }}</td>
                     <td class="report-cell report-cell-titems">{{ purchase.total_items_bought }}</td>
                 </tr>
                 {% endfor %}
@@ -167,7 +168,7 @@
             <h3>Resumen General</h3>
             <p>Total de Proveedores: {{ total_suppliers }}</p>
             <p>Cantidad Total de Items Comprados: {{ total_items_comprados }}</p>
-            <p>Total de Compras: {{ total_costos|floatformat:2|intcomma }} AR$</p>
+            <p>Total de Compras: {{ total_costos|pesos }}</p>
         </div>
     </div>
     <footer>

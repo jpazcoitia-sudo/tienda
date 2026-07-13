@@ -1,3 +1,4 @@
+{% load formato %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -47,9 +48,9 @@
                 <td>{{ product.description }}</td>
                 <td>{{ product.date_added }}</td>
                 <td style="text-align: center;">{{ product.cantidad }}</td>
-                <td style="text-align: center;">AR$ {{ product.cost|floatformat:2 }}</td>
-                <td style="text-align: center;">AR$ {{ product.precio_mayorista|floatformat:2 }}</td>
-                <td style="text-align: center;">AR$ {{ product.precio_minorista|floatformat:2 }}</td>
+                <td style="text-align: center;">{{ product.cost|pesos }}</td>
+                <td style="text-align: center;">{{ product.precio_mayorista|pesos }}</td>
+                <td style="text-align: center;">{{ product.precio_minorista|pesos }}</td>
             </tr>
             {% endfor %}
         </tbody>
