@@ -67,7 +67,7 @@
 
             <!-- Verificación mixto -->
             <div class="alert alert-warning d-none mb-2" id="alerta-mixto">
-                Total ingresado: <strong id="total-mixto">AR$ 0</strong> / 
+                Total ingresado: <strong id="total-mixto">$0,00</strong> / 
                 Total a pagar: <strong id="total-pagar-ref"></strong>
             </div>
 
@@ -79,18 +79,19 @@
     </form>
 </div>
 <script>
+    // Usa las funciones globales de formato.js (ya cargado en el POS)
     function formatNumber(num) {
-        return parseFloat(num).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        return formatearNumero(num, 2);
     }
     
     function cleanNumber(str) {
-        return parseFloat(String(str).replace(/[,\s]/g, '')) || 0;
+        return parsearNumero(str);
     }
 
     $(function() {
         var payableAmount = cleanNumber($('#payable_amount').val());
         $('#payable_amount').val(formatNumber(payableAmount));
-        $('#total-pagar-ref').text('AR$ ' + formatNumber(payableAmount));
+        $('#total-pagar-ref').text('$' + formatNumber(payableAmount));
 
         function esMixto() {
             return $('input[name="forma_pago_checkout"]:checked').val() === 'mixto';
@@ -120,7 +121,7 @@
             var total = efectivo + transferencia;
             var change = efectivo - payableAmount;
 
-            $('#total-mixto').text('AR$ ' + formatNumber(total));
+            $('#total-mixto').text('$' + formatNumber(total));
             $('#payment_change').val(formatNumber(Math.max(0, change)));
             $('[name="amount_change"]').val(Math.max(0, change).toFixed(2));
             $('[name="tendered_amount"]').val(efectivo);
@@ -152,7 +153,7 @@
         // Monto exacto
         $('#monto_exacto').on('change', function() {
             if ($(this).is(':checked')) {
-                $('#tendered_amount').val(payableAmount);
+                $('#tendered_amount').val(formatNumber(payableAmount));
                 $('#payment_change').val(formatNumber(0));
                 $('[name="amount_change"]').val('0.00');
                 $('[name="tendered_amount"]').val(payableAmount);

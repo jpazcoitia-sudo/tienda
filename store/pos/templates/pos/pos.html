@@ -190,8 +190,8 @@
                 <input type="hidden" id="modal-fraccionable-id">
                 <div class="form-group">
                     <label>Cantidad (kg / gr)</label>
-                    <input type="number" class="form-control" id="modal-fraccionable-qty"
-                        step="0.001" min="0.001" placeholder="Ej: 0.350">
+                    <input type="text" inputmode="decimal" class="form-control" id="modal-fraccionable-qty"
+                        placeholder="Ej: 0,350">
                 </div>
             </div>
             <div class="modal-footer">
@@ -220,6 +220,7 @@
 {% endblock pageContent %}
 
 {% block ScriptBlock %}
+<script src="{% static 'js/formato.js' %}"></script>
 <script>
     var product_json = '{{ product_json }}';
     if (product_json == "" || product_json == "{}") {
@@ -269,29 +270,28 @@
     function calc() {
         var sub_total = 0;
         $('#POS-field table tbody tr').each(function() {
-            var price = $(this).find('[name="price[]"]').val();
-            var qty = $(this).find('[name="qty[]"]').val();
-            qty = String(qty).replace(',', '.');
+            var price = parsearNumero($(this).find('[name="price[]"]').val());
+            var qty = parsearNumero($(this).find('[name="qty[]"]').val());
             qty = qty > 0 ? qty : 0;
-            var total = parseFloat(price) * parseFloat(qty);
-            $(this).find('.product_total').text(parseFloat(total).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
-            sub_total += parseFloat(total);
+            var total = price * qty;
+            $(this).find('.product_total').text(formatearPeso(total));
+            sub_total += total;
         });
 
         var tax = $('[name="tax"]').val();
         tax = tax / 100;
-        var tax_amount = parseFloat(sub_total) * parseFloat(tax);
-        $('#tax_amount').text('AR$ ' + parseFloat(tax_amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
-        $('[name="tax_amount"]').val(parseFloat(tax_amount));
-        var descuento = parseFloat($('#descuento_monto').val()) || 0;
+        var tax_amount = sub_total * parseFloat(tax);
+        $('#tax_amount').text(formatearPeso(tax_amount));
+        $('[name="tax_amount"]').val(tax_amount);
+        var descuento = parsearNumero($('#descuento_monto').val()) || 0;
         var total_con_descuento = sub_total - descuento;
         total_con_descuento = total_con_descuento < 0 ? 0 : total_con_descuento;
         var porcentaje = sub_total > 0 ? (descuento / sub_total * 100).toFixed(2) : 0;
         $('#descuento_porcentaje').text(porcentaje + '%');
-        $('#grand_total').text('AR$ ' + parseFloat(total_con_descuento).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
-        $('[name="grand_total"]').val(parseFloat(total_con_descuento));
-        $('#sub_total').text('AR$ ' + parseFloat(sub_total).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","));
-        $('[name="sub_total"]').val(parseFloat(sub_total));
+        $('#grand_total').text(formatearPeso(total_con_descuento));
+        $('[name="grand_total"]').val(total_con_descuento);
+        $('#sub_total').text(formatearPeso(sub_total));
+        $('[name="sub_total"]').val(sub_total);
     }
 
     function actualizarPreciosEnTabla() {
@@ -302,8 +302,8 @@
                 var data = prod_arr[product_id];
                 var nuevo_precio = getPrecioActual(data);
                 $(this).find('[name="price[]"]').val(nuevo_precio);
-                $(this).find('.product_price').text(parseFloat(nuevo_precio).toLocaleString('en-US'));
-                $(this).find('.product_total').text(parseFloat(nuevo_precio * qty).toLocaleString('en-US'));
+                $(this).find('.product_price').text(formatearPeso(nuevo_precio));
+                $(this).find('.product_total').text(formatearPeso(nuevo_precio * qty));
             }
         });
         calc();
@@ -322,8 +322,8 @@
         tr.find('[name="product[]"]').val(id);
         tr.find('[name="price[]"]').val(precio_actual);
         tr.find('.product_name').text(data.name);
-        tr.find('.product_price').text(parseFloat(precio_actual).toLocaleString('en-US'));
-        tr.find('.product_total').text(parseFloat(precio_actual * qty).toLocaleString('en-US'));
+        tr.find('.product_price').text(formatearPeso(precio_actual));
+        tr.find('.product_total').text(formatearPeso(precio_actual * qty));
         $('#POS-field table tbody').append(tr);
         calc();
 
@@ -352,8 +352,8 @@
                 tr.find('[name="product[]"]').val(item.product_id);
                 tr.find('[name="price[]"]').val(item.precio);
                 tr.find('.product_name').text(data.name);
-                tr.find('.product_price').text(parseFloat(item.precio).toLocaleString('en-US'));
-                tr.find('.product_total').text(parseFloat(item.precio * item.cantidad).toLocaleString('en-US'));
+                tr.find('.product_price').text(formatearPeso(item.precio));
+                tr.find('.product_total').text(formatearPeso(item.precio * item.cantidad));
                 $('#POS-field table tbody').append(tr);
                 tr.find('[name="qty[]"]').on('input keypress keyup keydown', function() {
                     calc();
@@ -444,8 +444,8 @@
         // Confirmar cantidad para fraccionable
         $('#modal-fraccionable-confirmar').click(function() {
             var id = $('#modal-fraccionable-id').val();
-            var qty = $('#modal-fraccionable-qty').val();
-            if (!qty || parseFloat(qty) <= 0) {
+            var qty = parsearNumero($('#modal-fraccionable-qty').val());
+            if (!qty || qty <= 0) {
                 alert('Ingresá una cantidad válida');
                 return;
             }
@@ -512,6 +512,16 @@
                 return false;
             }
             start_loader();
+
+            // Normalizar cantidades y precios a formato con punto antes de enviar
+            // (por si el usuario los escribio con coma). El backend espera punto decimal.
+            $('#POS-field table tbody tr').each(function() {
+                var $qty = $(this).find('[name="qty[]"]');
+                var $price = $(this).find('[name="price[]"]');
+                if ($qty.length) $qty.val(parsearNumero($qty.val()));
+                if ($price.length) $price.val(parsearNumero($price.val()));
+            });
+
             $.ajax({
                 headers: {
                     "X-CSRFToken": '{{csrf_token}}'
@@ -608,19 +618,19 @@
     $(document).on('click', '.product_price', function() {
         var td = $(this);
         var precio_actual = $(this).closest('tr').find('[name="price[]"]').val();
-        td.html('<input type="number" class="form-control form-control-sm rounded-0 text-end precio-edit" value="' + precio_actual + '" style="width:80px; display:inline-block;">');
+        td.html('<input type="text" inputmode="decimal" class="form-control form-control-sm rounded-0 text-end precio-edit" value="' + precio_actual + '" style="width:80px; display:inline-block;">');
         td.find('.precio-edit').focus().select();
     });
 
     $(document).on('blur change', '.precio-edit', function() {
         var input = $(this);
         var tr = input.closest('tr');
-        var nuevo_precio = parseFloat(input.val());
+        var nuevo_precio = parsearNumero(input.val());
         if (isNaN(nuevo_precio) || nuevo_precio <= 0) {
-            nuevo_precio = parseFloat(tr.find('[name="price[]"]').val());
+            nuevo_precio = parsearNumero(tr.find('[name="price[]"]').val());
         }
         tr.find('[name="price[]"]').val(nuevo_precio);
-        input.closest('td').text(parseFloat(nuevo_precio).toLocaleString('en-US'));
+        input.closest('td').text(formatearPeso(nuevo_precio));
         calc();
     });
 
