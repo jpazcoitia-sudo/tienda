@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 {% load humanize %}
+{% load formato %}
 
 {% block pageContent %}
 <div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
@@ -25,7 +26,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="mb-0">💵 Efectivo en Caja</h6>
-                            <h2 class="mt-2 mb-0">AR$ {{ caja.saldo_efectivo|floatformat:2 }}</h2>
+                            <h2 class="mt-2 mb-0">{{ caja.saldo_efectivo|pesos }}</h2>
                         </div>
                         <div>
                             <i class="mdi mdi-cash" style="font-size: 3rem; opacity: 0.5;"></i>
@@ -41,7 +42,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="mb-0">🏦 Saldo en Banco</h6>
-                            <h2 class="mt-2 mb-0">AR$ {{ caja.saldo_banco|floatformat:2 }}</h2>
+                            <h2 class="mt-2 mb-0">{{ caja.saldo_banco|pesos }}</h2>
                         </div>
                         <div>
                             <i class="mdi mdi-bank" style="font-size: 3rem; opacity: 0.5;"></i>
@@ -57,7 +58,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="mb-0">💰 Total Disponible</h6>
-                            <h2 class="mt-2 mb-0">AR$ {{ caja.total_disponible|floatformat:2 }}</h2>
+                            <h2 class="mt-2 mb-0">{{ caja.total_disponible|pesos }}</h2>
                         </div>
                         <div>
                             <i class="mdi mdi-wallet" style="font-size: 3rem; opacity: 0.5;"></i>
@@ -110,24 +111,24 @@
                 <table class="table table-sm">
                     <tr>
                         <td>Ventas:</td>
-                        <td class="text-end text-success">+AR$ {{ ventas_efectivo_hoy|floatformat:2 }}</td>
+                        <td class="text-end text-success">+{{ ventas_efectivo_hoy|pesos }}</td>
                     </tr>
                     <tr>
                         <td>Compras Pagadas:</td>
-                        <td class="text-end text-danger">-AR$ {{ compras_efectivo_hoy|floatformat:2 }}</td>
+                        <td class="text-end text-danger">-{{ compras_efectivo_hoy|pesos }}</td>
                     </tr>
                     <tr>
                         <td>Retiros:</td>
-                        <td class="text-end text-danger">-AR$ {{ retiros_efectivo_hoy|floatformat:2 }}</td>
+                        <td class="text-end text-danger">-{{ retiros_efectivo_hoy|pesos }}</td>
                     </tr>
                     <tr>
                         <td>Gastos:</td>
-                        <td class="text-end text-danger">-AR$ {{ gastos_efectivo_hoy|floatformat:2 }}</td>
+                        <td class="text-end text-danger">-{{ gastos_efectivo_hoy|pesos }}</td>
                     </tr>
                     <tr class="fw-bold">
                         <td>Balance del Día:</td>
                         <td class="text-end {% if balance_efectivo_hoy >= 0 %}text-success{% else %}text-danger{% endif %}">
-                            {% if balance_efectivo_hoy >= 0 %}+{% endif %}AR$ {{ balance_efectivo_hoy|floatformat:2 }}
+                            {% if balance_efectivo_hoy >= 0 %}+{% endif %}{{ balance_efectivo_hoy|pesos }}
                         </td>
                     </tr>
                 </table>
@@ -139,24 +140,24 @@
                 <table class="table table-sm">
                     <tr>
                         <td>Ventas:</td>
-                        <td class="text-end text-success">+AR$ {{ ventas_banco_hoy|floatformat:2 }}</td>
+                        <td class="text-end text-success">+{{ ventas_banco_hoy|pesos }}</td>
                     </tr>
                     <tr>
                         <td>Compras Pagadas:</td>
-                        <td class="text-end text-danger">-AR$ {{ compras_banco_hoy|floatformat:2 }}</td>
+                        <td class="text-end text-danger">-{{ compras_banco_hoy|pesos }}</td>
                     </tr>
                     <tr>
                         <td>Retiros:</td>
-                        <td class="text-end text-danger">-AR$ {{ retiros_banco_hoy|floatformat:2 }}</td>
+                        <td class="text-end text-danger">-{{ retiros_banco_hoy|pesos }}</td>
                     </tr>
                     <tr>
                         <td>Gastos:</td>
-                        <td class="text-end text-danger">-AR$ {{ gastos_banco_hoy|floatformat:2 }}</td>
+                        <td class="text-end text-danger">-{{ gastos_banco_hoy|pesos }}</td>
                     </tr>
                     <tr class="fw-bold">
                         <td>Balance del Día:</td>
                         <td class="text-end {% if balance_banco_hoy >= 0 %}text-success{% else %}text-danger{% endif %}">
-                            {% if balance_banco_hoy >= 0 %}+{% endif %}AR$ {{ balance_banco_hoy|floatformat:2 }}
+                            {% if balance_banco_hoy >= 0 %}+{% endif %}{{ balance_banco_hoy|pesos }}
                         </td>
                     </tr>
                 </table>
@@ -204,7 +205,7 @@
                         </td>
                         <td>{{ mov.concepto|truncatewords:10 }}</td>
                         <td class="text-end {% if mov.es_ingreso %}text-success{% else %}text-danger{% endif %}">
-                            {% if mov.es_ingreso %}+{% else %}-{% endif %}AR$ {{ mov.monto|floatformat:2 }}
+                            {% if mov.es_ingreso %}+{% else %}-{% endif %}{{ mov.monto|pesos }}
                         </td>
                         <td>
                             {% if mov.afecta_efectivo %}💵{% endif %}

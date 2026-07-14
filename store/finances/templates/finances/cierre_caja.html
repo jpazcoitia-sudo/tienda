@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% load humanize %}
+{% load formato %}
+{% load static %}
 {% block pageContent %}
 
 <div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
@@ -24,30 +26,30 @@
                 <tbody>
                     <tr class="text-success">
                         <td>💰 Ventas</td>
-                        <td class="text-end">AR$ {{ preview.ventas_efectivo|floatformat:2 }}</td>
-                        <td class="text-end">AR$ {{ preview.ventas_banco|floatformat:2 }}</td>
+                        <td class="text-end">{{ preview.ventas_efectivo|pesos }}</td>
+                        <td class="text-end">{{ preview.ventas_banco|pesos }}</td>
                     </tr>
                     <tr class="text-danger">
                         <td>🛒 Compras</td>
-                        <td class="text-end">AR$ {{ preview.compras_efectivo|floatformat:2 }}</td>
-                        <td class="text-end">AR$ {{ preview.compras_banco|floatformat:2 }}</td>
+                        <td class="text-end">{{ preview.compras_efectivo|pesos }}</td>
+                        <td class="text-end">{{ preview.compras_banco|pesos }}</td>
                     </tr>
                     <tr class="text-danger">
                         <td>💸 Retiros</td>
-                        <td class="text-end">AR$ {{ preview.retiros_efectivo|floatformat:2 }}</td>
-                        <td class="text-end">AR$ {{ preview.retiros_banco|floatformat:2 }}</td>
+                        <td class="text-end">{{ preview.retiros_efectivo|pesos }}</td>
+                        <td class="text-end">{{ preview.retiros_banco|pesos }}</td>
                     </tr>
                     <tr class="text-danger">
                         <td>📋 Gastos</td>
-                        <td class="text-end">AR$ {{ preview.gastos_efectivo|floatformat:2 }}</td>
-                        <td class="text-end">AR$ {{ preview.gastos_banco|floatformat:2 }}</td>
+                        <td class="text-end">{{ preview.gastos_efectivo|pesos }}</td>
+                        <td class="text-end">{{ preview.gastos_banco|pesos }}</td>
                     </tr>
                 </tbody>
                 <tfoot>
                     <tr class="fw-bold border-top">
                         <td>Saldo esperado en caja</td>
-                        <td class="text-end text-primary">AR$ {{ preview.saldo_esperado|floatformat:2 }}</td>
-                        <td class="text-end text-primary">AR$ {{ caja.saldo_banco|floatformat:2 }}</td>
+                        <td class="text-end text-primary">{{ preview.saldo_esperado|pesos }}</td>
+                        <td class="text-end text-primary">{{ caja.saldo_banco|pesos }}</td>
                     </tr>
                 </tfoot>
             </table>
@@ -60,7 +62,7 @@
     <div class="mdc-card">
         <div class="card-body">
             <h5 class="card-title">Registrar Cierre</h5>
-            <form method="post">
+            <form method="post" id="form-cierre">
                 {% csrf_token %}
                 <div class="mb-3">
                     <label class="form-label fw-bold">Fecha del Cierre</label>
@@ -90,3 +92,20 @@
 </div>
 
 {% endblock pageContent %}
+
+{% block ScriptBlock %}
+<script src="{% static 'js/formato.js' %}"></script>
+<script>
+    // Normalizar el monto contado (coma o punto) antes de enviar
+    $(document).on('submit', '#form-cierre', function() {
+        $(this).find('input[name*="saldo_real"], input[type="number"]').each(function() {
+            var v = $(this).val();
+            if (v) $(this).val(parsearNumero(v));
+        });
+        return true;
+    });
+    $(function() {
+        $('#form-cierre input[type="number"]').attr('type', 'text').attr('inputmode', 'decimal');
+    });
+</script>
+{% endblock ScriptBlock %}

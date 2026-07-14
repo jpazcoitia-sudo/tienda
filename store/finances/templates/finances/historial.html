@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load humanize %}
+{% load formato %}
 {% block pageContent %}
 <div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
     <div class="mdc-card p-4">
@@ -26,7 +27,7 @@
                         <td><span class="badge bg-secondary">{{ mov.get_tipo_display }}</span></td>
                         <td>{{ mov.concepto|truncatewords:10 }}</td>
                         <td class="text-end {% if mov.es_ingreso %}text-success{% else %}text-danger{% endif %}">
-                            {% if mov.es_ingreso %}+{% else %}-{% endif %}AR$ {{ mov.monto|floatformat:2|intcomma }}
+                            {% if mov.es_ingreso %}+{% else %}-{% endif %}{{ mov.monto|pesos }}
                         </td>
                     </tr>
                     {% empty %}

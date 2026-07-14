@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load humanize %}
+{% load formato %}
 {% block pageContent %}
 
 <div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
@@ -32,10 +33,10 @@
                     {% for cierre in cierres %}
                     <tr>
                         <td>{{ cierre.fecha|date:"d/m/Y" }}</td>
-                        <td class="text-end">AR$ {{ cierre.saldo_esperado_efectivo|floatformat:2 }}</td>
-                        <td class="text-end">AR$ {{ cierre.saldo_real_efectivo|floatformat:2 }}</td>
+                        <td class="text-end">{{ cierre.saldo_esperado_efectivo|pesos }}</td>
+                        <td class="text-end">{{ cierre.saldo_real_efectivo|pesos }}</td>
                         <td class="text-end {% if cierre.diferencia_efectivo < 0 %}text-danger{% elif cierre.diferencia_efectivo > 0 %}text-warning{% else %}text-success{% endif %}">
-                            AR$ {{ cierre.diferencia_efectivo|floatformat:2 }}
+                            {{ cierre.diferencia_efectivo|pesos }}
                         </td>
                         <td>{{ cierre.cerrado_por|default:"-" }}</td>
                         <td>
