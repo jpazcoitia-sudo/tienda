@@ -254,7 +254,7 @@
                     {% endif %}
                     <div class="mb-3">
                         <label class="form-label">Monto</label>
-                        <input type="number" name="monto" class="form-control" step="any" min="0" required>
+                        <input type="text" inputmode="decimal" name="monto" id="monto-pago" class="form-control" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Forma de Pago</label>
@@ -278,3 +278,17 @@
 </div>
 
 {% endblock pageContent %}
+
+{% block ScriptBlock %}
+<script src="{% static 'js/formato.js' %}"></script>
+<script>
+    // Normalizar el monto del pago (acepta coma o punto) antes de enviar
+    $(document).on('submit', 'form[action*="registrar-pago"]', function() {
+        var $monto = $('#monto-pago');
+        if ($monto.length) {
+            $monto.val(parsearNumero($monto.val()));
+        }
+        return true;
+    });
+</script>
+{% endblock ScriptBlock %}
