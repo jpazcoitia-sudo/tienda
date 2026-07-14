@@ -170,6 +170,7 @@
 {% endblock %}
 
 {% block ScriptBlock %}
+<script src="{% static 'js/formato.js' %}"></script>
 <script>
 // Variables globales
 let productos = {{ productos_json|safe }};
@@ -259,12 +260,15 @@ function renderizarTabla() {
         
         tbody.append(row);
     });
+
+    // Convertir inputs numericos a text para aceptar coma en Mac
+    $('#tbody-productos input[type="number"]').attr('type', 'text').attr('inputmode', 'decimal');
     
     // Event listeners para inputs
     $('.editable').on('input', function() {
         const id = parseInt($(this).data('id'));
         const field = $(this).data('field');
-        const value = parseFloat($(this).val()) || 0;
+        const value = parsearNumero($(this).val()) || 0;
         
         // Actualizar datos
         const producto = productos.find(p => p.id === id);
@@ -284,7 +288,7 @@ function renderizarTabla() {
 
     // Recalcular costo final al cambiar costo factura o checkboxes
     function recalcularCostoFinal(id) {
-        const costoFactura = parseFloat($(`.costo-factura[data-id="${id}"]`).val()) || 0;
+        const costoFactura = parsearNumero($(`.costo-factura[data-id="${id}"]`).val()) || 0;
         const tieneIva = $(`.check-iva[data-id="${id}"]`).is(':checked');
         const tienePerc = $(`.check-perc[data-id="${id}"]`).is(':checked');
 
@@ -369,9 +373,9 @@ function guardarCambios() {
         return {
             id: producto.id,
             name: producto.name,
-            cost: parseFloat($(`input[data-id="${id}"][data-field="cost"]`).val()),
-            porc_minorista: parseFloat($(`input[data-id="${id}"][data-field="porc_minorista"]`).val()),
-            porc_mayorista: parseFloat($(`input[data-id="${id}"][data-field="porc_mayorista"]`).val())
+            cost: parsearNumero($(`input[data-id="${id}"][data-field="cost"]`).val()),
+            porc_minorista: parsearNumero($(`input[data-id="${id}"][data-field="porc_minorista"]`).val()),
+            porc_mayorista: parsearNumero($(`input[data-id="${id}"][data-field="porc_mayorista"]`).val())
         };
     });
     
@@ -457,7 +461,7 @@ function aplicarMasivo() {
 }
 
 function formatMoney(value) {
-    return parseFloat(value).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+    return formatearNumero(value, 2);
 }
 </script>
 {% endblock %}

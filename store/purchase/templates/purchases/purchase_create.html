@@ -112,7 +112,7 @@
                             <tfoot>
                                 <tr class="fw-bold">
                                     <td colspan="4" class="text-end">TOTAL:</td>
-                                    <td class="text-end" id="grand-total">AR$ 0.00</td>
+                                    <td class="text-end" id="grand-total">$0,00</td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -144,20 +144,20 @@
                         <div class="p-2 bg-light rounded">
                             <div class="d-flex justify-content-between">
                                 <span>Subtotal productos:</span>
-                                <span id="resumen-subtotal">AR$ 0.00</span>
+                                <span id="resumen-subtotal">$0,00</span>
                             </div>
                             <div class="d-flex justify-content-between">
                                 <span>IVA:</span>
-                                <span id="resumen-iva">AR$ 0.00</span>
+                                <span id="resumen-iva">$0,00</span>
                             </div>
                             <div class="d-flex justify-content-between">
                                 <span>Percepción:</span>
-                                <span id="resumen-perc">AR$ 0.00</span>
+                                <span id="resumen-perc">$0,00</span>
                             </div>
                             <hr class="my-1">
                             <div class="d-flex justify-content-between fw-bold">
                                 <span>Total final:</span>
-                                <span id="resumen-total">AR$ 0.00</span>
+                                <span id="resumen-total">$0,00</span>
                             </div>
                         </div>
                     </div>
@@ -212,26 +212,27 @@
 {% endblock %}
 
 {% block ScriptBlock %}
+<script src="{% static 'js/formato.js' %}"></script>
 <script>
     var product_json = {{ products_json|safe }};
     var prod_arr = product_json;
 
     function formatMoney(amount) {
-        return 'AR$ ' + parseFloat(amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        return formatearPeso(amount);
     }
 
     function calculateTotal() {
             let subtotal = 0;
             $('#products-table tbody tr').each(function() {
-                let cost = parseFloat($(this).find('.cost-value').val()) || 0;
-                let qty = parseFloat($(this).find('.qty-input').val()) || 0;
+                let cost = parsearNumero($(this).find('.cost-value').val()) || 0;
+                let qty = parsearNumero($(this).find('.qty-input').val()) || 0;
                 let lineTotal = cost * qty;
                 $(this).find('.product-subtotal').text(formatMoney(lineTotal));
                 subtotal += lineTotal;
             });
 
-            let ivaPct = parseFloat($('#iva-pct').val()) || 0;
-            let percPct = parseFloat($('#perc-pct').val()) || 0;
+            let ivaPct = parsearNumero($('#iva-pct').val()) || 0;
+            let percPct = parsearNumero($('#perc-pct').val()) || 0;
 
             let ivaAmt = ivaPct;   // Ya es monto directo
             let percAmt = percPct; // Ya es monto directo
@@ -298,9 +299,9 @@
         // Añadir producto a la tabla
         $('#add_item').click(function() {
             let productId = $('#product-id').val();
-            let cost = parseFloat($('#product-cost').val());
-            let desc = parseFloat($('#product-desc').val()) || 0;
-            let qty = parseFloat($('#product-qty').val());
+            let cost = parsearNumero($('#product-cost').val());
+            let desc = parsearNumero($('#product-desc').val()) || 0;
+            let qty = parsearNumero($('#product-qty').val());
 
             if (!productId || !cost || !qty) {
                 alert("Por favor complete todos los campos del producto.");
@@ -357,6 +358,19 @@
                 alert('Debe seleccionar un proveedor.');
                 return false;
             }
+
+            // Normalizar cantidades y costos (coma o punto) antes de enviar
+            $('#products-table tbody tr').each(function() {
+                $(this).find('.qty-input, .cost-value, .desc-value').each(function() {
+                    var v = $(this).val();
+                    if (v) $(this).val(parsearNumero(v));
+                });
+            });
+        });
+
+        // Convertir inputs numericos a text para aceptar coma en Mac
+        $(function() {
+            $('#purchase-form input[type="number"]').attr('type', 'text').attr('inputmode', 'decimal');
         });
 
         // Actualizar lista de productos sin recargar la página
