@@ -108,7 +108,8 @@
                 var efectivo = cleanNumber($('#tendered_amount').val());
                 var transferencia = cleanNumber($('#tendered_transferencia').val());
                 var total = efectivo + transferencia;
-                $('#submit').prop('disabled', total < payableAmount);
+                // Redondear a 2 decimales para evitar errores de punto flotante
+                $('#submit').prop('disabled', Math.round(total * 100) < Math.round(payableAmount * 100));
             } else {
                 var monto = cleanNumber($('#tendered_amount').val());
                 $('#submit').prop('disabled', monto <= 0);
@@ -216,7 +217,8 @@
                 var efectivo = cleanNumber($('#tendered_amount').val());
                 var transferencia = cleanNumber($('#tendered_transferencia').val());
                 var total = efectivo + transferencia;
-                if (total < payableAmount) {
+                // Redondear a 2 decimales para evitar errores de punto flotante
+                if (Math.round(total * 100) < Math.round(payableAmount * 100)) {
                     alert("El total ingresado es menor al monto a pagar.");
                     return false;
                 }

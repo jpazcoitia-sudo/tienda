@@ -17,7 +17,8 @@
       <p><strong>Nombre:</strong> {{ product.name }}</p>
       <p><strong>Descripción:</strong> {{ product.description }}</p>
       <p><strong>Costo:</strong> {{ product.cost|pesos }}</p>
-      <p><strong>Precio:</strong> {{ product.price|pesos }}</p>
+      <p><strong>Precio Minorista:</strong> {{ product.precio_minorista|pesos }}</p>
+      <p><strong>Precio Mayorista:</strong> {{ product.precio_mayorista|pesos }}</p>
       <p><strong>Cantidad en Stock:</strong> {{ product.quantity|cantidad }}</p>
       <p><strong>Cantidad Histórica:</strong> {{ cantidad_historica|cantidad }}</p>
       <td class="text-center">
