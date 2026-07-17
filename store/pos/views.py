@@ -31,6 +31,7 @@ def pos(request):
             'price': float(product.precio_minorista),
             'codigo_barras': product.codigo_barras or '',
             'tipo_venta': product.tipo_venta,
+            'plu': product.plu or '',
         })
     
     clientes = Cliente.objects.filter(activo=True).order_by('name')

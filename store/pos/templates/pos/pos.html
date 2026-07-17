@@ -239,10 +239,15 @@
 
     // Índice de productos por código de barras
     var barcode_arr = {};
+    // Índice de productos por PLU (para códigos de balanza)
+    var plu_arr = {};
     Object.keys(prod_arr).forEach(function(k) {
         var p = prod_arr[k];
         if (p.codigo_barras && p.codigo_barras !== '') {
             barcode_arr[p.codigo_barras] = p;
+        }
+        if (p.plu !== undefined && p.plu !== null && p.plu !== '') {
+            plu_arr[p.plu] = p;
         }
     });
 
@@ -409,6 +414,32 @@
                 if (codigo === '') return;
 
                 var producto = barcode_arr[codigo];
+
+                // Código de balanza: EAN-13 que arranca con 2 y NO coincide con un código guardado.
+                // Formato: 2 + PLU(5 dígitos) + peso en gramos(6 dígitos) + verificador
+                if (!producto && /^2\d{12}$/.test(codigo)) {
+                    var pluBalanza = parseInt(codigo.substring(1, 6), 10);
+                    var pesoGramos = parseInt(codigo.substring(6, 12), 10);
+                    var prodBalanza = plu_arr[pluBalanza];
+                    if (prodBalanza && pesoGramos > 0) {
+                        agregarProductoAlCarrito(prodBalanza.id, pesoGramos / 1000);
+                        $('#barcode-status').removeClass('bg-secondary bg-danger').addClass('bg-success');
+                        $('#barcode-status').html('<i class="mdi mdi-check"></i>');
+                        setTimeout(function() {
+                            $('#barcode-status').removeClass('bg-success').addClass('bg-secondary');
+                            $('#barcode-status').html('<i class="mdi mdi-barcode"></i>');
+                        }, 1000);
+                        return;
+                    }
+                    $('#barcode-status').removeClass('bg-secondary bg-success').addClass('bg-danger');
+                    $('#barcode-status').html('<i class="mdi mdi-alert"></i>');
+                    setTimeout(function() {
+                        $('#barcode-status').removeClass('bg-danger').addClass('bg-secondary');
+                        $('#barcode-status').html('<i class="mdi mdi-barcode"></i>');
+                    }, 2000);
+                    alert(prodBalanza ? ('Peso inválido en la etiqueta (PLU ' + pluBalanza + ')') : ('PLU no encontrado en el sistema: ' + pluBalanza));
+                    return;
+                }
 
                 if (!producto) {
                     $('#barcode-status').removeClass('bg-secondary bg-success').addClass('bg-danger');
