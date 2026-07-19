@@ -462,4 +462,32 @@ def asignar_codigo_barras(request):
 
     return JsonResponse({'status': 'ok', 'mensaje': 'Código asignado correctamente'})
         
-    
+@login_required
+def exportar_plu_itegra(request):
+    """
+    Genera un CSV con los productos fraccionables para importar en Itegra (Kretz).
+    Separado por ';'. Un renglon por PLU.
+    Campos: NUMERO DE PLU ; CODIGO DE PLU ; NOMBRE (max 26) ; DEPARTAMENTO ; PRECIO (entero) ; TIPO (P) ; ETIQUETA
+    """
+    DEPARTAMENTO = '1'   # Depto. 1 en Itegra
+    ETIQUETA = '1'       # diseno de etiqueta en la balanza
+    TIPO = 'P'           # P = pesable
+
+    productos = Products.objects.filter(
+        tipo_venta=Products.TIPO_VENTA_FRACCIONABLE,
+        plu__isnull=False,
+    ).order_by('plu')
+
+    lineas = ['NUMERO DE PLU;CODIGO DE PLU;NOMBRE DE PLU;CODIGO DE DEPARTAMENTO;PRECIO;TIPO DE PLU;CODIGO DE ETIQUETA']
+    for p in productos:
+        nombre = (p.name or '').replace(';', ' ').strip()[:26]
+        precio = int(round(float(p.precio_minorista or 0)))
+        lineas.append(f"{p.plu};{p.plu};{nombre};{DEPARTAMENTO};{precio};{TIPO};{ETIQUETA}")
+
+    contenido = '\r\n'.join(lineas) + '\r\n'
+    response = HttpResponse(
+        contenido.encode('latin-1', errors='replace'),
+        content_type='text/csv; charset=iso-8859-1',
+    )
+    response['Content-Disposition'] = 'attachment; filename="plu_itegra.csv"'
+    return response
