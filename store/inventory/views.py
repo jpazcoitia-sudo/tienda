@@ -45,6 +45,15 @@ def generar_codigo_interno():
             return codigo
 
 
+def siguiente_codigo_correlativo(digitos=4):
+    """Devuelve el proximo codigo interno correlativo (0001, 0002, ...)."""
+    maximo = 0
+    for c in Products.objects.values_list('code', flat=True):
+        if c and str(c).isdigit():
+            maximo = max(maximo, int(c))
+    return str(maximo + 1).zfill(digitos)
+
+
 def generar_codigo_fraccionable(plu):
     """
     Genera un código EAN-13 para producto fraccionable con PLU embebido.
@@ -170,8 +179,16 @@ class ProductCreate(LoginRequiredMixin, PermissionRequiredMixin, generic.CreateV
     success_url = reverse_lazy('inventory:product_list')
     permission_required = 'inventory.add_products'
     
+    def get_initial(self):
+        initial = super().get_initial()
+        initial['code'] = siguiente_codigo_correlativo()
+        return initial
+
     def form_valid(self, form):
         producto = form.save(commit=False)
+
+        # El codigo interno siempre es correlativo automatico (campo de solo lectura)
+        producto.code = siguiente_codigo_correlativo()
 
         # Si es fraccionable y no tiene PLU, asignar el próximo disponible
         if producto.tipo_venta == Products.TIPO_VENTA_FRACCIONABLE and not producto.plu:
@@ -213,6 +230,10 @@ class ProductUpdate(LoginRequiredMixin, PermissionRequiredMixin, generic.UpdateV
     def form_valid(self, form):
         product_name = self.get_object().name
         producto = form.save(commit=False)
+
+        # Si no se ingreso codigo interno, asignar el proximo correlativo
+        if not producto.code:
+            producto.code = siguiente_codigo_correlativo()
 
         # Si es fraccionable y no tiene PLU, asignar el próximo disponible
         if producto.tipo_venta == Products.TIPO_VENTA_FRACCIONABLE and not producto.plu:

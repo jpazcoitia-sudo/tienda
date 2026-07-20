@@ -53,7 +53,8 @@ class ProductsForm(forms.ModelForm):
         widgets = {
             'code': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Vin001',
+                'placeholder': 'Se asigna automaticamente',
+                'readonly': 'readonly',
             }),
             'category': forms.Select(attrs={
                 'class': 'form-control',
@@ -111,3 +112,5 @@ class ProductsForm(forms.ModelForm):
         self.fields['producto_origen'].queryset = Products.objects.exclude(
             tipo_venta='fraccionable'
         ).order_by('name')
+        # El codigo interno es opcional: si se deja vacio, el sistema asigna el proximo correlativo
+        self.fields['code'].required = False
