@@ -35,6 +35,7 @@
     <div class="d-flex justify-content-between align-items-center">
       <h4 class="card-title mb-0">Lista de Productos</h4>
       <div class="text-start">
+        <a href="{% url 'inventory:planilla_emergencia' %}" class="btn btn-warning btn-sm me-2" title="Descargar planilla de emergencia (Excel)"><i class="mdi mdi-file-excel"></i> Planilla emergencia</a>
         <a href="{% url 'inventory:exportar_plu_itegra' %}" class="btn btn-success btn-sm me-2" title="Descargar CSV de PLU fraccionables para importar en Itegra"><i class="mdi mdi-scale"></i> Exportar PLU (Itegra)</a>
         <a href="{% url 'inventory:product_create' %}" class="btn btn-primary btn-sm">Nuevo Producto</a>
       </div>

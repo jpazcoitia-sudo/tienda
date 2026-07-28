@@ -1,4 +1,5 @@
 from . import views
+from . import planilla
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import path
@@ -24,4 +25,5 @@ urlpatterns = [
     path('api/producto-costo/<int:pk>/', views.api_producto_costo, name='api_producto_costo'),
     path('api/asignar-codigo-barras/', views.asignar_codigo_barras, name='asignar_codigo_barras'),
     path('exportar-plu-itegra/', views.exportar_plu_itegra, name='exportar_plu_itegra'),
+    path('planilla-emergencia/', planilla.planilla_emergencia, name='planilla_emergencia'),
 ]
