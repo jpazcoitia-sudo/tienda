@@ -84,7 +84,7 @@ class PurchaseCreate(LoginRequiredMixin, PermissionRequiredMixin, generic.Templa
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['suppliers'] = Supplier.objects.all().order_by('name')
-        context['products'] = Products.objects.exclude(tipo_venta='fraccionable').order_by('name')
+        context['products'] = Products.objects.all().order_by('name')
         
         # Crear JSON de productos para JavaScript
         products_json = {}
@@ -93,6 +93,7 @@ class PurchaseCreate(LoginRequiredMixin, PermissionRequiredMixin, generic.Templa
                 'id': product.id,
                 'name': product.name,
                 'cost': float(product.cost),
+                'codigo_barras': product.codigo_barras or '',
             }
         context['products_json'] = json.dumps(products_json)
         
@@ -164,6 +165,19 @@ class PurchaseCreate(LoginRequiredMixin, PermissionRequiredMixin, generic.Templa
                 purchase.perc_monto = perc_monto
                 purchase.save()
                 
+                # Costo de cada producto = promedio ponderado de sus renglones EN ESTA compra.
+                # (si el producto aparece una sola vez, es identico al costo de ese renglon)
+                _acc = {}
+                for _it in purchase.items.select_related('product'):
+                    if not _it.product:
+                        continue
+                    _d = _acc.setdefault(_it.product_id, {'cq': Decimal('0'), 'q': Decimal('0'), 'prod': _it.product})
+                    _d['cq'] += _it.cost * _it.qty
+                    _d['q'] += _it.qty
+                for _d in _acc.values():
+                    if _d['q'] > 0:
+                        _d['prod'].update_cost((_d['cq'] / _d['q']).quantize(Decimal('0.0001')))
+
                 accion = request.POST.get('accion', 'guardar')
                 messages.success(request, f"Compra #{purchase.id} registrada. Total: AR$ {total:,.2f}")
 
@@ -185,7 +199,7 @@ class PurchaseUpdate(LoginRequiredMixin, PermissionRequiredMixin, generic.View):
         purchase = get_object_or_404(Purchase, pk=pk)
         items = purchase.items.all()
         suppliers = Supplier.objects.all().order_by('name')
-        products = Products.objects.exclude(tipo_venta='fraccionable').order_by('name')
+        products = Products.objects.all().order_by('name')
         
         products_json = {}
         for product in products:
@@ -193,6 +207,7 @@ class PurchaseUpdate(LoginRequiredMixin, PermissionRequiredMixin, generic.View):
                 'id': product.id,
                 'name': product.name,
                 'cost': float(product.cost),
+                'codigo_barras': product.codigo_barras or '',
             }
         
         context = {
@@ -242,6 +257,19 @@ class PurchaseUpdate(LoginRequiredMixin, PermissionRequiredMixin, generic.View):
 
                 purchase.total = total
                 purchase.save()
+
+                # Costo de cada producto = promedio ponderado de sus renglones EN ESTA compra.
+                # (si el producto aparece una sola vez, es identico al costo de ese renglon)
+                _acc = {}
+                for _it in purchase.items.select_related('product'):
+                    if not _it.product:
+                        continue
+                    _d = _acc.setdefault(_it.product_id, {'cq': Decimal('0'), 'q': Decimal('0'), 'prod': _it.product})
+                    _d['cq'] += _it.cost * _it.qty
+                    _d['q'] += _it.qty
+                for _d in _acc.values():
+                    if _d['q'] > 0:
+                        _d['prod'].update_cost((_d['cq'] / _d['q']).quantize(Decimal('0.0001')))
 
                 messages.success(request, f"Compra #{purchase.id} actualizada. Total: AR$ {total:,.2f}")
                 return redirect('purchase:purchase_list')
@@ -358,12 +386,13 @@ def purchase_pagar_view(request, pk):
 @login_required
 def api_productos_compra(request):
     """Devuelve lista de productos disponibles para compra en formato JSON."""
-    products = Products.objects.exclude(tipo_venta='fraccionable').order_by('name')
+    products = Products.objects.all().order_by('name')
     products_json = {}
     for product in products:
         products_json[product.id] = {
             'id': product.id,
             'name': product.name,
             'cost': float(product.cost),
+            'codigo_barras': product.codigo_barras or '',
         }
     return JsonResponse(products_json)

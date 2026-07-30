@@ -47,6 +47,17 @@
                 <!-- Agregar Productos -->
                 <fieldset class="mb-4">
                     <legend>Agregar Productos <a href="#" id="btn-refresh-productos" class="text-muted" style="font-size:0.8rem;">↻ Actualizar lista</a></legend>
+                    <!-- Escaneo por codigo de barras (Mitad 1) -->
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label for="barcode-input-compra"><i class="mdi mdi-barcode-scan"></i> Escanear codigo de barras</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="barcode-input-compra" placeholder="Escanea o escribi el codigo y presiona Enter" autocomplete="off">
+                                <span class="input-group-text bg-secondary text-white" id="barcode-status-compra"><i class="mdi mdi-barcode"></i></span>
+                            </div>
+                            <small class="text-muted">Escanea para elegir el producto y cargar el costo de la factura. Si el codigo no existe, en el paso 2 lo vas a poder dar de alta aca mismo.</small>
+                        </div>
+                    </div>
                     <div class="row align-items-end">
                         <div class="col-md-4">
                             <div class="form-group mb-3">
@@ -265,6 +276,11 @@
             calculateTotal();
         });
 
+        // Recalcular al editar la cantidad de un renglon en el cuerpo de la compra
+        $('#products-table').on('input change', '.qty-input', function() {
+            calculateTotal();
+        });
+
         $('#product-desc').on('focus', function() {
             if ($(this).val() == '0') $(this).val('');
         });
@@ -297,6 +313,46 @@
         });
 
         // Añadir producto a la tabla
+        // ---- Escaneo por codigo de barras (Mitad 1) ----
+        var barcode_arr = {};
+        function rebuildBarcodeIndex() {
+            barcode_arr = {};
+            $.each(prod_arr, function(id, p) {
+                if (p && p.codigo_barras && p.codigo_barras !== '') { barcode_arr[String(p.codigo_barras)] = id; }
+            });
+        }
+        rebuildBarcodeIndex();
+
+        $('#barcode-input-compra').on('keypress', function(e) {
+            if (e.which === 13) {
+                e.preventDefault();
+                var codigo = $(this).val().trim();
+                if (!codigo) return;
+                var productId = barcode_arr[codigo];
+                if (productId) {
+                    $('#product-id').val(productId).trigger('change');
+                    $('#barcode-status-compra').removeClass('bg-danger').addClass('bg-success');
+                    $(this).val('');
+                    $('#product-cost').focus().select();
+                } else {
+                    $(this).select();
+                    $('#barcode-status-compra').removeClass('bg-success').addClass('bg-danger');
+                    alert('Producto no encontrado (codigo ' + codigo + '). En el paso 2 vas a poder darlo de alta aca mismo.');
+                }
+            }
+        });
+        // Enter NO debe finalizar la compra por accidente: solo se finaliza con el boton.
+        // En el area de carga, Enter navega entre campos (costo -> cantidad -> Anadir).
+        $('#purchase-form').on('keypress', function(e){
+            if (e.which !== 13) return;
+            var id = e.target.id;
+            if (id === 'product-cost') { e.preventDefault(); $('#product-qty').focus().select(); return; }
+            if (id === 'product-desc') { e.preventDefault(); $('#product-qty').focus().select(); return; }
+            if (id === 'product-qty')  { e.preventDefault(); $('#add_item').click(); $('#barcode-input-compra').focus(); return; }
+            if (id === 'barcode-input-compra') { return; } // lo maneja su propio handler
+            if (e.target.tagName === 'INPUT') { e.preventDefault(); } // proveedor, comprobante, iva, perc, desc...
+        });
+
         $('#add_item').click(function() {
             let productId = $('#product-id').val();
             let cost = parsearNumero($('#product-cost').val());
@@ -382,6 +438,7 @@
                 success: function(data) {
                     // Actualizar prod_arr
                     prod_arr = data;
+                    rebuildBarcodeIndex();
 
                     // Actualizar select
                     var opciones = '<option value="" disabled selected>Seleccione un producto</option>';
