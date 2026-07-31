@@ -82,7 +82,7 @@ class PurchaseReportView(LoginRequiredMixin, PermissionRequiredMixin,ListView):
                     'total_items_bought': 0
                 }
 
-            product_name = item.product.name
+            product_name = item.product.name if item.product else '(producto eliminado)'
             if product_name not in grouped_data[key]['products']:
                 grouped_data[key]['products'][product_name] = {
                     'qty': 0,
@@ -148,7 +148,7 @@ class GeneratePDFPurchaseView(View):
             total_items = 0  
 
             for item in items:
-                product_name = item.product.name
+                product_name = item.product.name if item.product else '(producto eliminado)'
                 if product_name in products_list:
                     products_list[product_name] += item.cost
                 else:
@@ -219,7 +219,7 @@ class YearlyPDFPurchaseView(FormView):
             products_list = {}
             for item in items:
                 
-                product_name = item.product.name
+                product_name = item.product.name if item.product else '(producto eliminado)'
                 if product_name in products_list:
                     products_list[product_name] += item.cost
                 else:
@@ -289,7 +289,7 @@ class MonthlyPDFPurchaseView(FormView):
             total_items = 0
             products_list = {}
             for item in items:
-                product_name = item.product.name
+                product_name = item.product.name if item.product else '(producto eliminado)'
                 if product_name in products_list:
                     products_list[product_name] += item.cost
                 else:
@@ -363,7 +363,7 @@ class DailyPDFPurchaseView(FormView):
             total_items = 0
             products_list = {}
             for item in items:
-                product_name = item.product.name
+                product_name = item.product.name if item.product else '(producto eliminado)'
                 if product_name in products_list:
                     products_list[product_name] += item.cost
                 else:

@@ -169,6 +169,12 @@ Karting: ~/Projects/karting
 - ✅ Importador de productos desde Excel
 - ✅ Módulo de pedidos
 - ✅ Ticket térmico 48mm (impresora Gadnic IT1050)
+- ✅ Exportar PLU a Itegra (botón en listado de productos)
+- ✅ Planilla de emergencia XLSX (endpoint con token + botón + descarga automática diaria a la PC del negocio + aviso por healthchecks.io)
+- ✅ Escaneo de código de barras en carga de compras (selecciona producto y navega costo→cantidad→Añadir)
+- ✅ Costo del producto = promedio ponderado de sus renglones en la misma compra (antes pisaba con el último cargado)
+- ✅ Fraccionables ahora visibles en el selector de carga de compras (antes se excluían y no se podían comprar)
+- ✅ Fix compras: Enter ya no finaliza la compra por accidente + recálculo en vivo al editar la cantidad en la tabla
 
 ### Pendiente:
 - 🖨️ Probar ticket con impresora Gadnic IT1050 en Windows
@@ -176,6 +182,14 @@ Karting: ~/Projects/karting
 - 💸 Retiro de dinero - acceso rápido desde home
 - 🏠 Pulir home (Ver más + vista stock bajo punto de pedido)
 - 🔧 Ordenar menú izquierdo
+- 🛒 Compras Parte 2: modal de alta rápida de producto nuevo desde la carga (opción fraccionable + margen en vivo)
+- 👤 Permisos de empleada (grupo "Vendedor" solo-mostrador) + cambio rápido con PIN + auto-bloqueo por inactividad
+- 🧾 Pulir descuentos/impuestos en compras con carpeta de ejemplos de facturas/remitos reales
+- 🐛 Revisar lógica de costo al BORRAR una compra (usa una resta incoherente)
+- ⚖️ Balanza etiqueta con precio → CERRADO (no tiene solución por software): la Novel Eco 2 usa formato de etiqueta FIJO de firmware para el impresor MARA/PIC. Papiro cambia DATOS (empresa sí cambió) pero NO el layout; la balanza ignora el nº de diseño (confirmado cambiando 1→2, sale idéntica). No es problema operativo: balanza y POS comparten la misma lista de precios. Única vía restante: consultar a Kretz.
+
+### 🗓️ Última sesión (30/07/2026):
+Deploy de: exportar PLU Itegra, planilla de emergencia, y mejoras de compras (escaneo, Enter, costo promedio, recálculo de cantidad, fraccionables visibles). En curso: Parte 2 del modal de compras y permisos de empleada. Aparte: setup balanza Kretz Novel Eco 2 + impresor PIC funcionando.
 
 ---
 
