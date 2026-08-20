@@ -14,54 +14,82 @@
     <div class="mdc-card p-4">
         <form method="post">
             {% csrf_token %}
-            
+
             <div class="row">
                 <!-- Tipo de Lista -->
                 <div class="col-md-6 mb-3">
                     <label class="form-label fw-bold">{{ form.tipo_lista.label }}</label>
                     {{ form.tipo_lista }}
                 </div>
-                
+
                 <!-- Filtro de Stock -->
                 <div class="col-md-6 mb-3">
                     <label class="form-label fw-bold">{{ form.stock.label }}</label>
                     {{ form.stock }}
                 </div>
             </div>
-            
+
             <hr class="my-4">
-            
+
             <h5 class="mb-3">Información de Contacto</h5>
-            
+
             <div class="row">
                 <!-- Nombre Contacto -->
                 <div class="col-md-6 mb-3">
                     <label class="form-label fw-bold">{{ form.nombre_contacto.label }}</label>
                     {{ form.nombre_contacto }}
                 </div>
-                
+
                 <!-- Teléfono Contacto -->
                 <div class="col-md-6 mb-3">
                     <label class="form-label fw-bold">{{ form.telefono_contacto.label }}</label>
                     {{ form.telefono_contacto }}
                 </div>
             </div>
-            
+
             <hr class="my-4">
-            
+
             <h5 class="mb-3">Filtrar por Categorías (Opcional)</h5>
-            <p class="text-muted small">Deja todo sin marcar para incluir todas las categorías</p>
-            
+            <p class="text-muted small">Si no elegís ninguna, se incluyen todas las categorías.</p>
+
             <div class="row">
-                <div class="col-12">
-                    <div class="categorias-checkbox">
-                        {{ form.categorias }}
+                <div class="col-12 mb-2 d-flex align-items-center flex-wrap gap-2">
+                    <button type="button" class="btn btn-outline-primary" id="btnAbrirCategorias">
+                        <i class="mdi mdi-filter-variant"></i> Elegir categorías
+                    </button>
+                    <span id="resumenCategorias" class="text-muted"></span>
+                </div>
+            </div>
+
+            <!-- Modal de categorías (contiene los checkboxes reales del form) -->
+            <div class="cat-modal-overlay" id="catModalOverlay" hidden>
+                <div class="cat-modal" role="dialog" aria-modal="true" aria-labelledby="catModalTitle">
+                    <div class="cat-modal-header">
+                        <h5 id="catModalTitle" class="mb-0">Seleccionar categorías</h5>
+                        <button type="button" class="cat-modal-close" id="catModalClose" aria-label="Cerrar">&times;</button>
+                    </div>
+                    <div class="cat-modal-toolbar">
+                        <input type="text" id="catBuscar" class="form-control" placeholder="Buscar categoría...">
+                        <div class="cat-modal-actions">
+                            <button type="button" class="btn btn-sm btn-light" id="catTodas">Seleccionar todas</button>
+                            <button type="button" class="btn btn-sm btn-light" id="catNinguna">Limpiar</button>
+                        </div>
+                    </div>
+                    <div class="cat-modal-body">
+                        <div class="categorias-checkbox" id="catLista">
+                            {{ form.categorias }}
+                        </div>
+                        <p id="catSinResultados" class="text-muted small mt-2" hidden>Sin resultados para la búsqueda.</p>
+                    </div>
+                    <div class="cat-modal-footer">
+                        <span id="catContadorModal" class="text-muted small"></span>
+                        <button type="button" class="btn btn-success" id="catListo">Listo</button>
                     </div>
                 </div>
             </div>
-            
+
             <hr class="my-4">
-            
+
             <div class="text-end">
                 <a href="{% url 'home-page' %}" class="btn btn-secondary">
                     <i class="mdi mdi-arrow-left"></i> Cancelar
@@ -75,35 +103,174 @@
 </div>
 
 <style>
+/* Lista de checkboxes (dentro del modal) */
 .categorias-checkbox ul {
     list-style: none;
     padding: 0;
+    margin: 0;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 10px;
 }
-
 .categorias-checkbox li {
     background: #f8f9fa;
     padding: 10px;
     border-radius: 5px;
     border: 1px solid #dee2e6;
 }
-
-.categorias-checkbox li:hover {
-    background: #e9ecef;
-}
-
+.categorias-checkbox li:hover { background: #e9ecef; }
 .categorias-checkbox label {
     cursor: pointer;
     display: flex;
     align-items: center;
     margin: 0;
 }
-
 .categorias-checkbox input[type="checkbox"] {
     margin-right: 8px;
     cursor: pointer;
 }
+
+/* Modal propio (sin depender de Bootstrap JS) */
+.cat-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1050;
+    padding: 16px;
+}
+.cat-modal-overlay[hidden] { display: none; }
+.cat-modal {
+    background: #fff;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 640px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+}
+.cat-modal-header,
+.cat-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid #e9ecef;
+}
+.cat-modal-footer { border-bottom: none; border-top: 1px solid #e9ecef; }
+.cat-modal-close {
+    background: none;
+    border: none;
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+    color: #6c757d;
+}
+.cat-modal-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px;
+    flex-wrap: wrap;
+}
+.cat-modal-toolbar .form-control { flex: 1 1 200px; }
+.cat-modal-actions { display: flex; gap: 6px; }
+.cat-modal-body {
+    padding: 8px 18px 16px;
+    overflow-y: auto;
+}
 </style>
+
+<script>
+(function () {
+    var overlay = document.getElementById('catModalOverlay');
+    if (!overlay) { return; }
+
+    var btnAbrir   = document.getElementById('btnAbrirCategorias');
+    var btnCerrar  = document.getElementById('catModalClose');
+    var btnListo   = document.getElementById('catListo');
+    var btnTodas   = document.getElementById('catTodas');
+    var btnNinguna = document.getElementById('catNinguna');
+    var buscar     = document.getElementById('catBuscar');
+    var resumen    = document.getElementById('resumenCategorias');
+    var contModal  = document.getElementById('catContadorModal');
+    var sinResult  = document.getElementById('catSinResultados');
+    var lista      = document.getElementById('catLista');
+
+    function checkboxes() {
+        return Array.prototype.slice.call(lista.querySelectorAll('input[type="checkbox"]'));
+    }
+    function items() {
+        return Array.prototype.slice.call(lista.querySelectorAll('li'));
+    }
+    function seleccionadas() {
+        return checkboxes().filter(function (c) { return c.checked; }).length;
+    }
+
+    function actualizarResumen() {
+        var n = seleccionadas();
+        if (n === 0) {
+            resumen.textContent = 'Todas las categorías (sin filtrar)';
+        } else if (n === 1) {
+            resumen.textContent = '1 categoría seleccionada';
+        } else {
+            resumen.textContent = n + ' categorías seleccionadas';
+        }
+        contModal.textContent = n + ' seleccionada' + (n === 1 ? '' : 's');
+    }
+
+    function abrir() { overlay.hidden = false; buscar.focus(); }
+    function cerrar() { overlay.hidden = true; }
+
+    function filtrar() {
+        var q = buscar.value.trim().toLowerCase();
+        var visibles = 0;
+        items().forEach(function (li) {
+            var txt = li.textContent.toLowerCase();
+            var match = q === '' || txt.indexOf(q) !== -1;
+            li.style.display = match ? '' : 'none';
+            if (match) { visibles++; }
+        });
+        sinResult.hidden = visibles !== 0;
+    }
+
+    function visibles() {
+        return items().filter(function (li) { return li.style.display !== 'none'; });
+    }
+
+    btnAbrir.addEventListener('click', abrir);
+    btnCerrar.addEventListener('click', cerrar);
+    btnListo.addEventListener('click', cerrar);
+
+    overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) { cerrar(); }
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !overlay.hidden) { cerrar(); }
+    });
+
+    btnTodas.addEventListener('click', function () {
+        visibles().forEach(function (li) {
+            var c = li.querySelector('input[type="checkbox"]');
+            if (c) { c.checked = true; }
+        });
+        actualizarResumen();
+    });
+    btnNinguna.addEventListener('click', function () {
+        visibles().forEach(function (li) {
+            var c = li.querySelector('input[type="checkbox"]');
+            if (c) { c.checked = false; }
+        });
+        actualizarResumen();
+    });
+
+    lista.addEventListener('change', actualizarResumen);
+    buscar.addEventListener('input', filtrar);
+
+    actualizarResumen();
+})();
+</script>
 {% endblock %}
