@@ -148,7 +148,7 @@ class ListaPreciosForm(forms.Form):
     )
     
     categorias = forms.ModelMultipleChoiceField(
-        queryset=Category.objects.filter(status=1).order_by('name'),
+        queryset=Category.objects.filter(products__status=1).distinct().order_by('name'),
         required=False,
         widget=forms.CheckboxSelectMultiple,
         label='Categorías (dejar vacío para todas)'
