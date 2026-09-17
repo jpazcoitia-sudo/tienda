@@ -56,4 +56,10 @@ store/db.sqlite3
 
 # Archivos de sistema Mac
 *.webloc
-.DS_Storetoken_github.txt
+token_github.txt
+
+# Volcados de datos / exports
+inventario_prod.json
+
+# Variables de entorno (secretos) - NUNCA subir
+.env

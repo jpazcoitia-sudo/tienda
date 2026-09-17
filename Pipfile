@@ -9,6 +9,7 @@ openpyxl = "*"
 xhtml2pdf = "*"
 reportlab = "*"
 fpdf = "*"
+python-dotenv = "*"
 
 [dev-packages]
 
