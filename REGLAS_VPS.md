@@ -34,7 +34,7 @@ kill -HUP [PID]         # Reiniciar Gunicorn
 - **Motor:** PostgreSQL (NO SQLite)
 - **Base de datos:** tienda_db
 - **Usuario:** tienda_user
-- **Contraseña:** Ajunito2215Golf$
+- **Contraseña:** (definida en el .env del VPS - no se versiona)
 - **Host:** localhost
 - **Puerto:** 5432
 
@@ -66,7 +66,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'tienda_db',
         'USER': 'tienda_user',
-        'PASSWORD': 'Ajunito2215Golf$',
+        'PASSWORD': '(definida en el .env del VPS - no se versiona)',
         'HOST': 'localhost',
         'PORT': '5432',
     }

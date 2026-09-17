@@ -27,7 +27,7 @@ Sistema de punto de venta (POS) para una fiambrería/almacén administrada por Y
 - **Motor:** PostgreSQL (**CRÍTICO: NO es SQLite**)
 - **DB:** tienda_db
 - **Usuario:** tienda_user
-- **Password:** Ajunito2215Golf$
+- **Password:** (definida en el .env del VPS - no se versiona)
 - **Host:** localhost / Puerto: 5432
 
 ### Base de datos local:
@@ -45,7 +45,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'tienda_db',
         'USER': 'tienda_user',
-        'PASSWORD': 'Ajunito2215Golf$',
+        'PASSWORD': '(definida en el .env del VPS - no se versiona)',
         'HOST': 'localhost',
         'PORT': '5432',
     }

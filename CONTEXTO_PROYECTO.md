@@ -45,7 +45,7 @@
 Motor:    postgresql
 DB:       tienda_db
 Usuario:  tienda_user
-Password: Ajunito2215Golf$
+Password: (definida en el .env del VPS - no se versiona)
 Host:     localhost
 Puerto:   5432
 ```
@@ -118,7 +118,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'tienda_db',
         'USER': 'tienda_user',
-        'PASSWORD': 'Ajunito2215Golf$',
+        'PASSWORD': '(definida en el .env del VPS - no se versiona)',
         'HOST': 'localhost',
         'PORT': '5432',
     }
@@ -186,6 +186,9 @@ Karting: ~/Projects/karting
 - 👤 Permisos de empleada (grupo "Vendedor" solo-mostrador) + cambio rápido con PIN + auto-bloqueo por inactividad
 - 🧾 Pulir descuentos/impuestos en compras con carpeta de ejemplos de facturas/remitos reales
 - 🐛 Revisar lógica de costo al BORRAR una compra (usa una resta incoherente)
+- 📊 Reporte de VENTAS: la columna "cliente" sale vacía → mostrar "Mostrador" cuando la venta es indeterminada, o el nombre del cliente si se le vendió a uno particular
+- 📊 Reportes PDF y Excel de COMPRAS: son heredados (previos a esta etapa), revisar uno a uno (el listado en pantalla se ve OK, proveedores aparecen)
+- 🌐 Traducir al español los controles de los listados (DataTables): Copy/CSV/Excel/Print/Column visibility/Search y el pie "Showing 1 to 10 of N entries" + Previous/Next. Aplica a varios listados
 - ⚖️ Balanza etiqueta con precio → CERRADO (no tiene solución por software): la Novel Eco 2 usa formato de etiqueta FIJO de firmware para el impresor MARA/PIC. Papiro cambia DATOS (empresa sí cambió) pero NO el layout; la balanza ignora el nº de diseño (confirmado cambiando 1→2, sale idéntica). No es problema operativo: balanza y POS comparten la misma lista de precios. Única vía restante: consultar a Kretz.
 
 ### 🗓️ Última sesión (30/07/2026):
