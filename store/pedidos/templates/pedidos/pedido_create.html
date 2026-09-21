@@ -34,7 +34,7 @@
                                 {% endfor %}
                             </select>
                             <small class="text-muted">
-                                <a href="{% url 'customers:customer_create' %}" target="_blank">+ Crear nuevo cliente</a>
+                                {% if perms.customers.add_cliente %}<a href="{% url 'customers:customer_create' %}" target="_blank">+ Crear nuevo cliente</a>{% endif %}
                             </small>
                         </div>
                     </div>

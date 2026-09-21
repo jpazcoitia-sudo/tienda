@@ -44,7 +44,7 @@
                             </select>
                             <small class="text-muted">
                                 Deja en blanco para venta sin cliente específico
-                                | <a href="{% url 'customers:customer_create' %}" target="_blank">+ Crear nuevo cliente</a>
+                                {% if perms.customers.add_cliente %}| <a href="{% url 'customers:customer_create' %}" target="_blank">+ Crear nuevo cliente</a>{% endif %}
                                 | <a href="#" id="btn-refresh-clientes">↻ Actualizar lista</a>
                             </small>
                         </div>

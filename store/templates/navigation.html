@@ -10,19 +10,21 @@
     <div class="mdc-drawer__content">
         <div class="mdc-list-group">
             <nav class="mdc-list mdc-drawer-menu">
+                {% if not is_vendedor %}
                 <div class="mdc-list-item mdc-drawer-item">
                     <a class="mdc-drawer-link" href="{% url 'home-page' %}">
                         <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon" aria-hidden="true">home</i> Inicio
                     </a>
                 </div>
-
                 <hr class="separator" style="margin: 5px 0;">
+                {% endif %}
+
                 <div class="mdc-list-item mdc-drawer-item">
                     <a class="mdc-drawer-link" href="{% url 'pedidos:pedido_list' %}">
                         <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon" aria-hidden="true">assignment</i> Pedidos
                     </a>
                 </div>
-                
+
                 <div class="mdc-list-item mdc-drawer-item">
                     <a class="mdc-drawer-link" href="{% url 'pos:pos-page' %}">
                         <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon" aria-hidden="true">store</i> POS
@@ -34,6 +36,15 @@
                     </a>
                 </div>
 
+                <hr class="separator" style="margin: 5px 0;">
+                <!-- Clientes: visible tambien para Vendedor (solo ver/elegir) -->
+                <div class="mdc-list-item mdc-drawer-item">
+                    <a class="mdc-drawer-link" href="{% url 'customers:customer_list' %}">
+                        <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon" aria-hidden="true">people</i> Clientes
+                    </a>
+                </div>
+
+                {% if not is_vendedor %}
                 <hr class="separator" style="margin: 5px 0;">
                 <div class="mdc-list-item mdc-drawer-item">
                     <a class="mdc-drawer-link" href="{% url 'inventory:category_list' %}">
@@ -51,12 +62,6 @@
                     </a>
                 </div>
                 <hr class="separator" style="margin: 5px 0;">
-                <!-- NUEVO: Enlace a Clientes -->
-                <div class="mdc-list-item mdc-drawer-item">
-                    <a class="mdc-drawer-link" href="{% url 'customers:customer_list' %}">
-                        <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon" aria-hidden="true">people</i> Clientes
-                    </a>
-                </div>
                 <div class="mdc-list-item mdc-drawer-item">
                     <a class="mdc-drawer-link" href="{% url 'purchase:supplier_list' %}" >
                         <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon" aria-hidden="true">local_shipping</i> Proveedores
@@ -73,7 +78,6 @@
                     </a>
                 </div>
                 <hr class="separator" style="margin: 5px 0;">
-                
                 <div class="mdc-list-item mdc-drawer-item">
                     <a class="mdc-drawer-link" href="{% url 'finances:dashboard' %}">
                         <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon" aria-hidden="true">account_balance_wallet</i> Caja y Banco
@@ -90,7 +94,6 @@
                     </a>
                 </div>
                 <hr class="separator" style="margin: 5px 0;">
-                
                 <div class="mdc-list-item mdc-drawer-item">
                     <a class="mdc-drawer-link" href="{% url 'report:mix_report' %}" >
                         <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon" aria-hidden="true">shuffle</i> Miscelanea
@@ -116,6 +119,7 @@
                         <i class="material-icons mdc-list-item__start-detail mdc-drawer-item-icon" aria-hidden="true">receipt</i> Lista de Precios
                     </a>
                 </div>
+                {% endif %}
             </nav>
         </div>
     </div>

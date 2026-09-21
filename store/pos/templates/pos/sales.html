@@ -39,9 +39,11 @@
                             <button class="mdc-button mdc-button--raised p-1 icon-button filled-button--light mdc-ripple-upgraded view-data" type="button" data-id="{{ sale.id }}" title="Vista Recibo">
                                 <i class="material-icons mdc-button__icon">receipt</i>
                             </button>
+                            {% if perms.pos.delete_sales %}
                             <button class="mdc-button mdc-button--raised p-1 icon-button filled-button--danger mdc-ripple-upgraded delete-data" type="button" data-id="{{ sale.id }}" data-code="{{ sale.code }}" title="Eliminar">
                                 <i class="material-icons mdc-button__icon">deleteoutline</i>
                             </button>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
