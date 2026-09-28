@@ -57,6 +57,16 @@ class Sales(models.Model):
         verbose_name='Lista de Precios'
     )  
 
+    # Quien realizo la venta (trazabilidad, sobre todo con empleada)
+    vendedor = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='Vendedor',
+        related_name='ventas_realizadas'
+    )
+
     def __str__(self):
         return self.code
     

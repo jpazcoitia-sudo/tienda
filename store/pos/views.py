@@ -105,7 +105,8 @@ def save_pos(request):
             amount_change=data['amount_change'],
             cliente=cliente,
             tipo_lista=tipo_lista,
-            forma_pago=forma_pago
+            forma_pago=forma_pago,
+            vendedor=request.user if request.user.is_authenticated else None
         )
         
         sales.save()
@@ -186,6 +187,7 @@ def salesList(request):
                 data[field.name] = getattr(sale, field.name)
         
         data['cliente_nombre'] = sale.get_nombre_cliente()
+        data['vendedor_nombre'] = sale.vendedor.username if sale.vendedor else '—'
         
         items = salesItems.objects.filter(sale_id=sale).all()
         products_list = {}
@@ -259,7 +261,8 @@ def create_sale(request):
             tendered_amount=0,
             amount_change=0,
             cliente=cliente,
-            tipo_lista=tipo_lista
+            tipo_lista=tipo_lista,
+            vendedor=request.user if request.user.is_authenticated else None
         )
 
         for item in items:

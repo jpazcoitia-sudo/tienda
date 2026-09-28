@@ -14,6 +14,7 @@
                     <tr>
                         <th class="text-center py-1">Clientes</th>
                         <th class="text-center py-1">Fecha y Hora</th>
+                        <th class="text-center py-1">Vendedor</th>
                         <th class="text-center py-1">Productos</th>
                         <th class="text-center py-1">Total</th>
                         <th class="text-center py-1">Cantidad Total Items</th>
@@ -25,6 +26,7 @@
                     <tr>
                         <td class="px-2 py-1 text-center">{{ sale.cliente }}</td>
                         <td class="px-2 py-1 text-center" data-order="{{ sale.date_added|date:'Y-m-d H:i:s' }}">{{ sale.date_added|date:'d-m-Y H:i' }}</td>
+                        <td class="px-2 py-1 text-center">{{ sale.vendedor_nombre }}</td>
                         <td class="px-2 py-1 text-rigth">
                             {% if sale.products_list %}
                                 {% for product, quantity in sale.products_list.items %}
