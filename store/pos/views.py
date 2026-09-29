@@ -294,6 +294,8 @@ def receipt(request):
         transaction['tax_amount'] = format(float(transaction['tax_amount']))
     
     transaction['cliente_nombre'] = sales.get_nombre_cliente()
+    # Nombre para imprimir en el ticket (vacio si es venta sin cliente)
+    transaction['cliente_ticket'] = sales.cliente.name if sales.cliente else ''
     
     ItemList = salesItems.objects.filter(sale=sales).all()
     

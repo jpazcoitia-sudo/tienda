@@ -151,6 +151,7 @@
     const ticketData = {
         fecha: "{{ formatted_date }}",
         ticket: "{{ transaction.code }}",
+        cliente: "{{ transaction.cliente_ticket|escapejs }}",
         total: "${{ transaction.grand_total|floatformat:0 }}",
         recibido: "${{ transaction.tendered_amount|floatformat:0 }}",
         vuelto: "${{ transaction.amount_change|floatformat:0 }}",
