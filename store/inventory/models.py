@@ -33,6 +33,18 @@ class Category(models.Model):
         self.check_and_update_status() 
         
 
+class ProductosVisibles(models.Manager):
+    """
+    Manager por defecto de Products: devuelve solo los productos NO eliminados.
+
+    Asi, todos los listados, buscadores y selectores del sistema dejan de mostrar
+    un producto eliminado sin tener que acordarse de filtrarlo en cada pantalla.
+    Para ver tambien los eliminados (historial, admin, restaurar) usar Products.todos.
+    """
+    def get_queryset(self):
+        return super().get_queryset().filter(eliminado=False)
+
+
 class Products(models.Model):
     """
     Modelo de Producto con sistema de precios mayorista/minorista.
@@ -159,6 +171,25 @@ class Products(models.Model):
         help_text='Para fraccionables: producto del cual proviene (actualiza costo automáticamente)'
     )
 
+    # --- Borrado logico -------------------------------------------------
+    # "Eliminar" un producto NO lo borra de la base: lo oculta. Asi las ventas,
+    # compras y pedidos viejos conservan su detalle. Estados del producto:
+    #   Activo    -> se vende
+    #   Inactivo  -> sin stock, pero se puede volver a comprar (lo maneja update_status)
+    #   Eliminado -> no va mas (duplicado, error de carga, discontinuado): no aparece
+    #                en ningun listado ni buscador, solo en el historial.
+    eliminado = models.BooleanField(
+        default=False,
+        db_index=True,
+        verbose_name='Eliminado',
+        help_text='Oculto en todo el sistema. Se conserva solo para el historial de ventas y compras.'
+    )
+    fecha_eliminado = models.DateTimeField(null=True, blank=True, verbose_name='Fecha de eliminación')
+
+    # El PRIMER manager es el que Django usa por defecto (listados, formularios, admin).
+    objects = ProductosVisibles()   # solo productos no eliminados
+    todos = models.Manager()        # todos, incluidos los eliminados
+
     class Meta:
         indexes = [
             models.Index(fields=['code']),
@@ -168,6 +199,25 @@ class Products(models.Model):
 
     def __str__(self):
         return self.name
+
+    def eliminar(self):
+        """
+        Borrado logico: oculta el producto y libera su codigo de barras y su PLU
+        (para poder asignarselos a otro producto). No toca ventas ni compras.
+        """
+        self.eliminado = True
+        self.fecha_eliminado = timezone.now()
+        self.codigo_barras = None
+        self.plu = None
+        self.status = self.STATUS_INACTIVE
+        self.save(update_fields=['eliminado', 'fecha_eliminado', 'codigo_barras', 'plu', 'status'])
+
+    def restaurar(self):
+        """Deshace el borrado logico. El codigo de barras y el PLU hay que volver a asignarlos."""
+        self.eliminado = False
+        self.fecha_eliminado = None
+        self.save(update_fields=['eliminado', 'fecha_eliminado'])
+        self.update_status()
 
     def update_quantity_on_sale(self, quantity_sold):
         from decimal import Decimal
@@ -244,6 +294,10 @@ class Products(models.Model):
     def clean(self):
         """Validaciones del modelo."""
         super().clean()
+        # El codigo interno tambien debe ser unico contra los productos eliminados
+        # (siguen en la base). La validacion automatica de Django solo mira los visibles.
+        if self.code and Products.todos.filter(code=self.code, eliminado=True).exclude(pk=self.pk).exists():
+            raise ValidationError({'code': "Ese código ya lo usó un producto eliminado. Elegí otro."})
         if self.cost < Decimal('0'):
             raise ValidationError({'cost': "El costo no puede ser negativo."})
         if self.margen_mayorista < Decimal('0'):
@@ -270,6 +324,9 @@ class Products(models.Model):
 
     def update_status(self):
         """Actualiza el estado del producto basandose en cantidad, costo y precio."""
+        # Un producto eliminado no cambia de estado (queda inactivo y oculto)
+        if self.eliminado:
+            return
         # Los fraccionables no se desactivan por stock cero
         if self.tipo_venta == self.TIPO_VENTA_FRACCIONABLE:
             if self.cost > Decimal('0') and self.precio_minorista > Decimal('0'):

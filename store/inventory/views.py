@@ -48,7 +48,8 @@ def generar_codigo_interno():
 def siguiente_codigo_correlativo(digitos=4):
     """Devuelve el proximo codigo interno correlativo (0001, 0002, ...)."""
     maximo = 0
-    for c in Products.objects.values_list('code', flat=True):
+    # Products.todos: se cuentan tambien los eliminados, para no repetir un codigo ya usado
+    for c in Products.todos.values_list('code', flat=True):
         if c and str(c).isdigit():
             maximo = max(maximo, int(c))
     return str(maximo + 1).zfill(digitos)
@@ -272,11 +273,16 @@ class ProductDelete(LoginRequiredMixin, SuccessMessageMixin,PermissionRequiredMi
     permission_required = 'inventory.delete_products'
     
     def post(self, request, *args, **kwargs):
+        # Borrado LOGICO: el producto se oculta, no se borra de la base.
+        # (Borrarlo de verdad eliminaba sus renglones de venta: bug hallado el 02/10/2026.)
         self.object = self.get_object()
-        product_name = self.object.name
-        success_message = f"Producto '{product_name}' eliminado exitosamente."
-        messages.success(self.request, success_message)
-        return self.delete(request, *args, **kwargs)
+        self.object.eliminar()
+        messages.success(
+            self.request,
+            f"Producto '{self.object.name}' eliminado. Ya no aparece en el sistema; "
+            "sus ventas y compras anteriores se conservan."
+        )
+        return redirect(self.success_url)
 
 """
 Vista para edición rápida de costos y precios de productos
@@ -353,6 +359,12 @@ def guardar_cambios_precios(request):
                     
                     # Actualizar valores
                     nuevo_costo = Decimal(str(cambio['cost'])).quantize(Decimal('0.01'))
+                    # SEGURO: esta pantalla nunca deja un producto en costo cero.
+                    # (Antes, un producto editado que ya no estaba a la vista al guardar
+                    # llegaba con costo 0 y margenes 0 y quedaba con precio $0.)
+                    if nuevo_costo <= 0 and producto.cost > 0:
+                        errores.append(f"{producto.name}: no se guardo porque el costo llego en cero")
+                        continue
                     # El margen se guarda con 2 decimales (asi esta definido el campo).
                     porc_minor = Decimal(str(cambio['porc_minorista'])).quantize(Decimal('0.01'))
                     porc_mayor = Decimal(str(cambio['porc_mayorista'])).quantize(Decimal('0.01'))

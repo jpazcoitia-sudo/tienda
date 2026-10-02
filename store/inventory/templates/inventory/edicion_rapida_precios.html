@@ -369,13 +369,16 @@ function guardarCambios() {
     
     const cambios = Array.from(productosModificados).map(id => {
         const producto = productos.find(p => p.id === id);
-        // Enviar los valores actuales (que pueden haber sido modificados)
+        // Los valores salen de la lista `productos` (que se actualiza con cada tecla),
+        // NO de los casilleros de la pantalla: si despues de editar un producto se busca
+        // otro, el primero ya no esta dibujado y sus casilleros no existen (antes eso
+        // lo mandaba con costo 0 y margenes 0).
         return {
             id: producto.id,
             name: producto.name,
-            cost: parsearNumero($(`input[data-id="${id}"][data-field="cost"]`).val()),
-            porc_minorista: parsearNumero($(`input[data-id="${id}"][data-field="porc_minorista"]`).val()),
-            porc_mayorista: parsearNumero($(`input[data-id="${id}"][data-field="porc_mayorista"]`).val())
+            cost: producto.cost,
+            porc_minorista: producto.porc_minorista,
+            porc_mayorista: producto.porc_mayorista
         };
     });
     
@@ -389,7 +392,11 @@ function guardarCambios() {
         success: function(response) {
             end_loader();
             if (response.success) {
-                alert(`✅ Se actualizaron ${response.actualizados} productos correctamente`);
+                let aviso = `✅ Se actualizaron ${response.actualizados} productos correctamente`;
+                if (response.errores && response.errores.length) {
+                    aviso += `\n\n⚠️ ${response.errores.length} NO se guardaron:\n- ` + response.errores.join('\n- ');
+                }
+                alert(aviso);
                 productosModificados.clear();
                 renderizarTabla();
                 location.reload();

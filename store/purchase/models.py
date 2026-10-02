@@ -24,9 +24,10 @@ def aplicar_diferencia_stock(cantidades_antes, cantidades_despues):
     for product_id in ids:
         diferencia = cantidades_despues.get(product_id, Decimal('0')) - cantidades_antes.get(product_id, Decimal('0'))
         if diferencia:
-            Products.objects.filter(pk=product_id).update(quantity=F('quantity') + diferencia)
+            # Products.todos: una compra vieja puede tener un producto eliminado (oculto)
+            Products.todos.filter(pk=product_id).update(quantity=F('quantity') + diferencia)
 
-    for producto in Products.objects.filter(pk__in=ids):
+    for producto in Products.todos.filter(pk__in=ids):
         if producto.quantity < 0:
             producto.quantity = Decimal('0')
             producto.save(update_fields=['quantity'])
@@ -203,7 +204,9 @@ class Purchase(models.Model):
 class PurchaseProduct(models.Model):
     purchase = models.ForeignKey(Purchase, on_delete=models.CASCADE, related_name='items', null=True, blank=True)  # Nueva relación
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True)
-    product = models.ForeignKey(Products, on_delete=models.SET_NULL, null=True)
+    # PROTECT: no se puede borrar de la base un producto que tiene compras.
+    # (Antes era SET_NULL: el renglon quedaba sin producto. null=True se mantiene por esos datos viejos.)
+    product = models.ForeignKey(Products, on_delete=models.PROTECT, null=True)
     cost = models.DecimalField(max_digits=18, decimal_places=8, default=0)
     # Costo de la factura, antes de sumarle la parte de IVA/percepcion.
     # (cost = costo final, con el impuesto repartido adentro)

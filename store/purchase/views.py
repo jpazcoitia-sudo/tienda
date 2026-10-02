@@ -11,7 +11,7 @@ from django.db import transaction
 import json
 from decimal import Decimal
 from django.utils import timezone
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, permission_required
 
 from .models import Supplier, PurchaseProduct, Purchase, aplicar_diferencia_stock
 from .forms import SupplierForm, PurchaseForm
@@ -34,13 +34,20 @@ def _renglones_del_formulario(request):
     qtys = request.POST.getlist('qty[]')
     renglones = []
     for i in range(len(product_ids)):
-        producto = Products.objects.get(id=product_ids[i])
+        # Products.todos: al editar una compra vieja puede venir un producto eliminado
+        producto = Products.todos.get(id=product_ids[i])
         renglones.append((producto, _numero(costs[i]), _numero(qtys[i])))
     return renglones
 
 
-def _productos_para_pantalla():
-    """Productos + el JSON que usa el JavaScript de la pantalla de compra."""
+def _productos_para_pantalla(ids_extra=()):
+    """
+    Productos + el JSON que usa el JavaScript de la pantalla de compra.
+
+    ids_extra: productos ELIMINADOS que igual hay que conocer porque ya estan en la
+    compra que se esta editando (para poder mostrar y conservar esos renglones).
+    No se agregan al desplegable: no se pueden elegir para un renglon nuevo.
+    """
     products = Products.objects.all().order_by('name')
     products_json = {}
     for product in products:
@@ -50,6 +57,14 @@ def _productos_para_pantalla():
             'name': product.name,
             'cost': float(product.cost),
             'codigo_barras': product.codigo_barras or '',
+        }
+    for product in Products.todos.filter(id__in=ids_extra, eliminado=True):
+        products_json[product.id] = {
+            'id': product.id,
+            'code': product.code,
+            'name': product.name + ' (eliminado)',
+            'cost': float(product.cost),
+            'codigo_barras': '',
         }
     return products, products_json
 
@@ -170,7 +185,9 @@ class PurchaseUpdate(LoginRequiredMixin, PermissionRequiredMixin, generic.View):
 
     def get(self, request, pk):
         purchase = get_object_or_404(Purchase, pk=pk)
-        products, products_json = _productos_para_pantalla()
+        products, products_json = _productos_para_pantalla(
+            ids_extra=[pid for pid in purchase.items.values_list('product_id', flat=True) if pid]
+        )
 
         # Renglones actuales, con el costo DE FACTURA (sin impuestos): es lo que la
         # pantalla muestra y reenvia. El IVA y la percepcion van en sus propios campos.
@@ -319,6 +336,8 @@ def marcar_compra_pagada(request, pk):
     
     return redirect('purchase:payment_list')
 
+@login_required
+@permission_required('purchase.change_purchaseproduct', raise_exception=True)
 def purchase_pagar_view(request, pk):
     """Vista para registrar el pago de una compra recién creada"""
     purchase = get_object_or_404(Purchase, pk=pk)

@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from django.urls import reverse_lazy
@@ -188,6 +188,8 @@ def cliente_toggle_activo(request, pk):
     
     return redirect('customers:customer_detail', pk=pk)
 
+@login_required
+@permission_required('customers.change_cliente', raise_exception=True)
 def registrar_pago(request, pk):
     from customers.models import MovimientoCuentaCorriente
     cliente = get_object_or_404(Cliente, pk=pk)

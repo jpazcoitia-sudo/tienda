@@ -129,7 +129,9 @@ else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+            # SQLITE_PATH permite apuntar a otra base (ej. la copia de produccion
+            # que arma traer_base.sh). Sin esa variable se usa la de desarrollo.
+            'NAME': os.environ.get('SQLITE_PATH') or (BASE_DIR / 'db.sqlite3'),
         }
     }
 

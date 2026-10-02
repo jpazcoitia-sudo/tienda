@@ -87,7 +87,9 @@ class salesItems(models.Model):
     ganancias historicas correctamente.
     """
     sale = models.ForeignKey(Sales, on_delete=models.CASCADE)
-    product = models.ForeignKey(Products, on_delete=models.CASCADE)
+    # PROTECT: no se puede borrar de la base un producto que tiene ventas.
+    # (Antes era CASCADE: borrar el producto borraba en silencio sus renglones de venta.)
+    product = models.ForeignKey(Products, on_delete=models.PROTECT)
     price = models.FloatField(default=0)  # Precio al momento de la venta
     costo_unitario = models.FloatField(default=0)  # Costo al momento de la venta
     qty = models.DecimalField(max_digits=10, decimal_places=3, default=0)
