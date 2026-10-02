@@ -2,12 +2,36 @@ from django.db import models
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.utils import timezone
-from django.db.models import Sum
+from django.db.models import Sum, F
 from inventory.models import Products
 from django.db import transaction
 from django.db import models, transaction
 from decimal import Decimal
 from django.core.exceptions import ValidationError
+
+def aplicar_diferencia_stock(cantidades_antes, cantidades_despues):
+    """
+    Ajusta el stock de cada producto por la DIFERENCIA entre lo que una compra
+    sumaba antes y lo que suma ahora:   stock = stock + (despues - antes)
+
+    - Editar una compra:  antes = renglones viejos, despues = renglones nuevos.
+    - Borrar una compra:  antes = sus renglones,    despues = {} (nada).
+
+    Se usa F() para que la cuenta la haga la base de datos sobre el valor actual.
+    El stock nunca queda negativo y se actualiza el estado (activo/inactivo).
+    """
+    ids = set(cantidades_antes) | set(cantidades_despues)
+    for product_id in ids:
+        diferencia = cantidades_despues.get(product_id, Decimal('0')) - cantidades_antes.get(product_id, Decimal('0'))
+        if diferencia:
+            Products.objects.filter(pk=product_id).update(quantity=F('quantity') + diferencia)
+
+    for producto in Products.objects.filter(pk__in=ids):
+        if producto.quantity < 0:
+            producto.quantity = Decimal('0')
+            producto.save(update_fields=['quantity'])
+        producto.update_status()
+
 
 class Supplier(models.Model):
     name = models.CharField(max_length=100)
@@ -58,6 +82,24 @@ class Purchase(models.Model):
     
     class Meta:
         ordering = ['-date_added']
+
+    def cantidades_por_producto(self):
+        """Devuelve {id_producto: cantidad total} sumando los renglones de esta compra."""
+        cantidades = {}
+        for item in self.items.all():
+            if item.product_id:
+                cantidades[item.product_id] = cantidades.get(item.product_id, Decimal('0')) + item.qty
+        return cantidades
+
+    def delete(self, *args, **kwargs):
+        """
+        Al borrar una compra hay que devolver el stock que habia sumado.
+        OJO: el borrado en cascada de los renglones NO llama a PurchaseProduct.delete(),
+        por eso el stock se ajusta aca.
+        """
+        with transaction.atomic():
+            aplicar_diferencia_stock(self.cantidades_por_producto(), {})
+            return super().delete(*args, **kwargs)
     
     # NUEVO: Métodos de pago
     def marcar_como_pagado(self, forma_pago='efectivo'):
@@ -121,7 +163,7 @@ class PurchaseProduct(models.Model):
             if self.product:
                 # Actualizar el producto asociado antes de eliminar la compra
                 self.product.decrease_quantity(self.qty)
-                self.product.update_cost_after_deletion(self.cost)
+                # No se toca el costo: restarle el costo del renglon lo dejaba en $0.
             super().delete(*args, **kwargs)
             
     def __str__(self):

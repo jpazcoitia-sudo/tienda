@@ -65,7 +65,7 @@
                                 <select id="product-id" class="form-select form-select-sm">
                                     <option value="" disabled selected>Seleccione un producto</option>
                                     {% for product in products %}
-                                        <option value="{{ product.pk }}">{{ product }}</option>
+                                        <option value="{{ product.pk }}">{{ product.code }} - {{ product.name }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -380,7 +380,7 @@
             let row = $(template.content.cloneNode(true));
             
             // Llenar datos
-            row.find('.product-name').text(product.name);
+            row.find('.product-name').text(product.code + ' - ' + product.name);
             row.find('.product-cost').text(formatMoney(cost));
             row.find('.product-desc').text(desc > 0 ? desc + '%' : '-');
             row.find('.product-id').val(productId);
@@ -443,7 +443,7 @@
                     // Actualizar select
                     var opciones = '<option value="" disabled selected>Seleccione un producto</option>';
                     $.each(data, function(id, producto) {
-                        opciones += '<option value="' + id + '">' + producto.name + '</option>';
+                        opciones += '<option value="' + id + '">' + producto.code + ' - ' + producto.name + '</option>';
                     });
                     $('#product-id').html(opciones);
                     $('#product-id').trigger('change.select2');

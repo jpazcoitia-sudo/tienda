@@ -13,7 +13,7 @@ from decimal import Decimal
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 
-from .models import Supplier, PurchaseProduct, Purchase
+from .models import Supplier, PurchaseProduct, Purchase, aplicar_diferencia_stock
 from .forms import SupplierForm, PurchaseForm
 from inventory.models import Products 
 
@@ -91,6 +91,7 @@ class PurchaseCreate(LoginRequiredMixin, PermissionRequiredMixin, generic.Templa
         for product in context['products']:
             products_json[product.id] = {
                 'id': product.id,
+                'code': product.code,
                 'name': product.name,
                 'cost': float(product.cost),
                 'codigo_barras': product.codigo_barras or '',
@@ -205,6 +206,7 @@ class PurchaseUpdate(LoginRequiredMixin, PermissionRequiredMixin, generic.View):
         for product in products:
             products_json[product.id] = {
                 'id': product.id,
+                'code': product.code,
                 'name': product.name,
                 'cost': float(product.cost),
                 'codigo_barras': product.codigo_barras or '',
@@ -238,25 +240,39 @@ class PurchaseUpdate(LoginRequiredMixin, PermissionRequiredMixin, generic.View):
                 purchase.supplier = supplier
                 purchase.numero_comprobante = numero_comprobante
 
-                # Borrar items anteriores y recrear
+                # Lo que esta compra sumaba al stock ANTES de editarla.
+                cantidades_antes = purchase.cantidades_por_producto()
+
+                # Borrar los renglones anteriores y recrearlos.
+                # Borrado masivo y bulk_create NO llaman a delete()/save() del modelo,
+                # asi que NO tocan el stock: el stock se ajusta una sola vez, mas abajo,
+                # por la diferencia entre lo viejo y lo nuevo.
                 purchase.items.all().delete()
 
                 total = Decimal(0)
+                nuevos_items = []
                 for i in range(len(product_ids)):
                     product = Products.objects.get(id=product_ids[i])
                     cost = Decimal(str(costs[i]).replace(',', '.'))
                     qty = Decimal(str(qtys[i]).replace(',', '.'))
-                    PurchaseProduct.objects.create(
+                    item = PurchaseProduct(
                         purchase=purchase,
                         supplier=supplier,
                         product=product,
                         cost=cost,
-                        qty=qty
+                        qty=qty,
+                        total=cost * qty,
                     )
+                    item.clean()  # valida costo y cantidad > 0
+                    nuevos_items.append(item)
                     total += cost * qty
+                PurchaseProduct.objects.bulk_create(nuevos_items)
 
                 purchase.total = total
                 purchase.save()
+
+                # Ajustar el stock por la diferencia (nuevo - viejo).
+                aplicar_diferencia_stock(cantidades_antes, purchase.cantidades_por_producto())
 
                 # Costo de cada producto = promedio ponderado de sus renglones EN ESTA compra.
                 # (si el producto aparece una sola vez, es identico al costo de ese renglon)
@@ -391,6 +407,7 @@ def api_productos_compra(request):
     for product in products:
         products_json[product.id] = {
             'id': product.id,
+            'code': product.code,
             'name': product.name,
             'cost': float(product.cost),
             'codigo_barras': product.codigo_barras or '',

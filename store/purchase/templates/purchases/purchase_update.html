@@ -41,7 +41,7 @@
                         <select id="product-id" class="form-select form-select-sm">
                             <option value="">--- Seleccionar ---</option>
                             {% for product in products %}
-                            <option value="{{ product.pk }}">{{ product.name }}</option>
+                            <option value="{{ product.pk }}">{{ product.code }} - {{ product.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -79,7 +79,7 @@
                             <tr>
                                 <td>
                                     <input type="hidden" name="product[]" value="{{ item.product.pk }}">
-                                    {{ item.product.name }}
+                                    <span class="text-muted">{{ item.product.code }}</span> - {{ item.product.name }}
                                 </td>
                                 <td>
                                     <input type="hidden" name="cost[]" value="{{ item.cost }}">
@@ -164,7 +164,7 @@ $('#add-item').click(function() {
     var row = `<tr>
         <td>
             <input type="hidden" name="product[]" value="${productId}">
-            ${product.name}
+            <span class="text-muted">${product.code}</span> - ${product.name}
         </td>
         <td>
             <input type="hidden" name="cost[]" value="${cost}">
