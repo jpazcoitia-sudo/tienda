@@ -152,7 +152,7 @@
 
   <script>
     $(document).ready(function() {
-      $('#miTabla').DataTable({
+      var tabla = $('#miTabla').DataTable({
         "paging": true,
         "ordering": true,
         "searching": true,
@@ -171,7 +171,8 @@
         },
         "order": [[9, "desc"]], 
         "buttons": ['copy', 'csv', 'excel', 'pdf', 'print', 'colvis']
-      }).buttons().container().appendTo('#miTabla_wrapper .col-md-6:eq(0)');
+      });
+      tabla.buttons().container().appendTo('#miTabla_wrapper .col-md-6:eq(0)');
 
       // Abrir modal al clickear "Asignar" o un codigo existente
       $(document).on('click', '.btn-asignar-codigo', function(e) {
@@ -218,8 +219,22 @@
           dataType: 'json',
           success: function(resp) {
             if (resp.status === 'ok') {
-              $('#cb-mensaje').html('<span class="text-success">Guardado. Recargando...</span>');
-              setTimeout(function() { location.reload(); }, 400);
+              // Actualizar la celda en el lugar, SIN recargar la pagina:
+              // asi la tabla queda en la misma pagina, con el mismo orden y busqueda.
+              var boton = tabla.rows().nodes().to$().find('.btn-asignar-codigo[data-id="' + id + '"]');
+              var celda = boton.closest('td');
+              var enlace = $('<a href="#" class="btn-asignar-codigo" title="Click para cambiar el código"></a>')
+                .attr('data-id', id)
+                .attr('data-nombre', $('#cb-nombre-producto').text())
+                .attr('data-codigo', codigo)
+                .text(codigo);
+              celda.empty().append(enlace);
+              // Avisarle a la tabla que la celda cambio (para que el buscador encuentre el codigo nuevo).
+              // draw(false) redibuja sin volver a la pagina 1.
+              tabla.cell(celda[0]).invalidate().draw(false);
+
+              $('#cb-mensaje').html('<span class="text-success">Guardado.</span>');
+              setTimeout(function() { $('#modalCodigoBarras').modal('hide'); }, 400);
             } else {
               $('#cb-mensaje').html('<span class="text-danger">' + resp.mensaje + '</span>');
               $('#cb-input-codigo').focus().select();
