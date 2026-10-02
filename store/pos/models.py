@@ -101,17 +101,19 @@ class salesItems(models.Model):
         if self.costo_unitario == 0 and self.product:
             self.costo_unitario = float(self.product.cost)
 
-        print(f"Guardando SalesItem: Producto: {self.product.name}, Cantidad: {self.qty}, Precio: {self.price}, Costo: {self.costo_unitario}")
+        # El stock se descuenta UNA sola vez: cuando el renglon se crea.
+        # (Antes se descontaba en cada save(): regrabar un renglon desde /admin restaba de nuevo.)
+        es_nuevo = self._state.adding
         super().save(*args, **kwargs)
-        self.update_product_quantity()
+        if es_nuevo:
+            self.update_product_quantity()
 
     def update_product_quantity(self):
-        """Actualiza la cantidad del producto despues de la venta."""
+        """Descuenta del stock lo vendido (siempre, aunque el stock quede negativo)."""
         self.product.update_quantity_on_sale(self.qty)
 
     def delete(self, *args, **kwargs):
-        """Restaura la cantidad del producto al eliminar el item."""
-        print(f"Eliminando SalesItem: Producto: {self.product.name}, Cantidad: {self.qty}")
+        """Devuelve al stock exactamente lo que este renglon habia descontado."""
         self.product.increase_quantity(self.qty)
         super().delete(*args, **kwargs)
 

@@ -2,7 +2,9 @@ import unicodedata
 from datetime import datetime
 
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.conf import settings
+from django.db import models, transaction
+from django.db.models import F
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -219,33 +221,35 @@ class Products(models.Model):
         self.save(update_fields=['eliminado', 'fecha_eliminado'])
         self.update_status()
 
+    # ------------------------------------------------------------------
+    # STOCK. Regla (decision del 02/10/2026):
+    #   - El stock PUEDE quedar negativo. Una venta nunca se frena por falta de stock:
+    #     se descuenta siempre. Un negativo es la senal de que hay que ajustar
+    #     (falta cargar una compra o hacer un conteo).
+    #   - El stock NO decide si el producto esta activo: con stock 0 se sigue vendiendo.
+    #   - Todos los movimientos pasan por _mover_stock, que le pide la cuenta a la base
+    #     con F(): asi dos ventas al mismo tiempo no se pisan entre si.
+    # ------------------------------------------------------------------
+    def _mover_stock(self, diferencia):
+        """Suma (o resta, si es negativa) una cantidad al stock. Devuelve el stock nuevo."""
+        diferencia = Decimal(str(diferencia))
+        Products.todos.filter(pk=self.pk).update(quantity=F('quantity') + diferencia)
+        self.refresh_from_db(fields=['quantity'])
+        return self.quantity
+
     def update_quantity_on_sale(self, quantity_sold):
-        from decimal import Decimal
-        quantity_sold = Decimal(str(quantity_sold))
-        if self.quantity >= quantity_sold:
-            self.quantity -= quantity_sold
-            self.save(update_fields=['quantity'])
-            return True
-        return False
+        """Descuenta lo vendido. Siempre descuenta, aunque el stock no alcance."""
+        self._mover_stock(-Decimal(str(quantity_sold)))
+        return True
 
     def increase_quantity(self, quantity_added):
-        self.quantity += quantity_added
-        self.save(update_fields=['quantity'])
-        self.update_status()
-    # 1last copy
+        self._mover_stock(quantity_added)
+
     def decrease_quantity(self, quantity_removed):
-        self.quantity -= quantity_removed
-        if self.quantity < 0:
-            self.quantity = 0
-        self.save(update_fields=['quantity'])
-        self.update_status()
-        
+        self._mover_stock(-Decimal(str(quantity_removed)))
+
     def update_quantity_on_purchase(self, quantity_difference):
-        self.quantity += quantity_difference
-        if self.quantity < 0:
-            self.quantity = 0
-        self.save(update_fields=['quantity'])
-        self.update_status()
+        self._mover_stock(quantity_difference)
 
     def update_cost(self, new_cost):
         """Actualiza el costo y recalcula los precios."""
@@ -323,26 +327,23 @@ class Products(models.Model):
             self.update_status()
 
     def update_status(self):
-        """Actualiza el estado del producto basandose en cantidad, costo y precio."""
+        """
+        Actualiza el estado del producto:
+          Activo   = tiene costo y precio (se puede vender).
+          Inactivo = le falta el costo o el precio.
+        El stock NO interviene (desde el 02/10/2026): un producto con stock 0 o
+        negativo sigue activo y se puede vender; el punto de venta avisa con un cartel.
+        """
         # Un producto eliminado no cambia de estado (queda inactivo y oculto)
         if self.eliminado:
             return
-        # Los fraccionables no se desactivan por stock cero
-        if self.tipo_venta == self.TIPO_VENTA_FRACCIONABLE:
-            if self.cost > Decimal('0') and self.precio_minorista > Decimal('0'):
-                if self.status != self.STATUS_ACTIVE:
-                    self.status = self.STATUS_ACTIVE
-                    self.save(update_fields=['status'])
-            return
-
-        if self.quantity > 0 and self.cost > Decimal('0') and self.precio_minorista > Decimal('0'):
-            if self.status != self.STATUS_ACTIVE:
-                self.status = self.STATUS_ACTIVE
-                self.save(update_fields=['status'])
+        if self.cost > Decimal('0') and self.precio_minorista > Decimal('0'):
+            nuevo = self.STATUS_ACTIVE
         else:
-            if self.status != self.STATUS_INACTIVE:
-                self.status = self.STATUS_INACTIVE
-                self.save(update_fields=['status'])
+            nuevo = self.STATUS_INACTIVE
+        if self.status != nuevo:
+            self.status = nuevo
+            self.save(update_fields=['status'])
 
     def update_cost_after_deletion(self, cost_removed):
         self.cost = self.calculate_new_cost_after_deletion(cost_removed)
@@ -385,3 +386,122 @@ class Products(models.Model):
     def ganancia_minorista(self):
         """Retorna la ganancia por unidad en precio minorista."""
         return self.precio_minorista - self.cost
+
+
+# ======================================================================
+# CONTEO DE STOCK (inventario fisico) — desde el 02/10/2026
+# ======================================================================
+class ConteoStock(models.Model):
+    """
+    Un conteo fisico de la mercaderia. Mientras esta abierto se van cargando
+    los productos contados; al cerrarlo queda como registro historico.
+    Solo puede haber un conteo abierto a la vez.
+    """
+    fecha_inicio = models.DateTimeField(default=timezone.now)
+    fecha_cierre = models.DateTimeField(null=True, blank=True)
+    iniciado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+                                     null=True, blank=True, related_name='+')
+    cerrado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+                                    null=True, blank=True, related_name='+')
+    nota = models.CharField(max_length=200, blank=True, default='')
+
+    class Meta:
+        ordering = ['-fecha_inicio']
+        verbose_name = 'Conteo de stock'
+        verbose_name_plural = 'Conteos de stock'
+
+    def __str__(self):
+        return f"Conteo del {self.fecha_inicio:%d/%m/%Y}"
+
+    @property
+    def abierto(self):
+        return self.fecha_cierre is None
+
+    @classmethod
+    def el_abierto(cls):
+        """Devuelve el conteo abierto, o None si no hay."""
+        return cls.objects.filter(fecha_cierre__isnull=True).first()
+
+    def cargar(self, producto, contado, usuario=None, automatico=False):
+        """
+        Anota lo contado de UN producto y pone ese valor como stock del sistema.
+
+        - No toca costos, precios ni caja: solo el stock.
+        - Guarda cuanto decia el sistema antes, para poder ver la diferencia.
+        - Si el producto ya estaba cargado en este conteo, corrige el valor
+          (se conserva el "stock del sistema" de la primera vez).
+        Devuelve el renglon.
+        """
+        if not self.abierto:
+            raise ValidationError("El conteo ya está cerrado.")
+        contado = Decimal(str(contado)).quantize(Decimal('0.01'))
+        if contado < 0:
+            raise ValidationError("La cantidad contada no puede ser negativa.")
+
+        with transaction.atomic():
+            # select_for_update: nadie mas cambia este producto hasta terminar
+            producto = Products.todos.select_for_update().get(pk=producto.pk)
+            renglon = ConteoStockRenglon.objects.filter(conteo=self, product=producto).first()
+            if renglon is None:
+                renglon = ConteoStockRenglon(conteo=self, product=producto, stock_sistema=producto.quantity)
+            renglon.contado = contado
+            renglon.usuario = usuario
+            renglon.fecha = timezone.now()
+            renglon.automatico = automatico
+            renglon.save()
+            Products.todos.filter(pk=producto.pk).update(quantity=contado)
+            producto.refresh_from_db(fields=['quantity'])
+            producto.update_status()
+        return renglon
+
+    def productos_sin_contar(self):
+        """Productos visibles que todavia no se cargaron en este conteo."""
+        return Products.objects.exclude(pk__in=self.renglones.values('product_id')).order_by('name')
+
+    def cerrar(self, usuario=None, poner_en_cero_los_no_contados=False):
+        """
+        Cierra el conteo. Si se pide, los productos que nadie conto quedan en stock 0
+        (y anotados en el conteo como puestos en cero automaticamente).
+        Devuelve cuantos productos se pusieron en cero.
+        """
+        if not self.abierto:
+            raise ValidationError("El conteo ya está cerrado.")
+        en_cero = 0
+        with transaction.atomic():
+            if poner_en_cero_los_no_contados:
+                for producto in self.productos_sin_contar():
+                    self.cargar(producto, Decimal('0'), usuario=usuario, automatico=True)
+                    en_cero += 1
+            self.fecha_cierre = timezone.now()
+            self.cerrado_por = usuario
+            self.save(update_fields=['fecha_cierre', 'cerrado_por'])
+        return en_cero
+
+
+class ConteoStockRenglon(models.Model):
+    """Un producto dentro de un conteo: cuanto decia el sistema y cuanto se conto."""
+    conteo = models.ForeignKey(ConteoStock, on_delete=models.CASCADE, related_name='renglones')
+    # PROTECT: un producto con conteos no se borra de la base (para eso esta el borrado logico)
+    product = models.ForeignKey(Products, on_delete=models.PROTECT, related_name='conteos')
+    stock_sistema = models.DecimalField(max_digits=10, decimal_places=2,
+                                        verbose_name='Stock que decía el sistema')
+    contado = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Contado')
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+                                null=True, blank=True, related_name='+')
+    fecha = models.DateTimeField(default=timezone.now)
+    automatico = models.BooleanField(default=False,
+                                     verbose_name='Puesto en cero al cerrar (no se contó)')
+
+    class Meta:
+        unique_together = [('conteo', 'product')]
+        ordering = ['product__name']
+        verbose_name = 'Renglón de conteo'
+        verbose_name_plural = 'Renglones de conteo'
+
+    def __str__(self):
+        return f"{self.product.name}: {self.contado}"
+
+    @property
+    def diferencia(self):
+        """Contado menos sistema: positivo = habia de mas en la realidad (sobrante)."""
+        return self.contado - self.stock_sistema

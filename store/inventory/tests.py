@@ -426,3 +426,245 @@ class RecuperarBorradosTests(TestCase):
         self.assertTrue('ya existe' in salida)
         self.assertEqual(self.salesItems.objects.filter(sale=self.venta).count(), 2)
         self.assertEqual(Products.todos.filter(code='0080').count(), 1)
+
+
+# ---------------------------------------------------------------------------
+# Estado del producto con la regla nueva (02/10/2026): el stock no decide.
+# ---------------------------------------------------------------------------
+class EstadoDelProductoTests(TestCase):
+
+    def setUp(self):
+        self.cat = Category.objects.create(name='Cat', description='x')
+
+    def test_por_unidad_sin_stock_queda_activo(self):
+        p = Products.objects.create(code='E001', name='SIN STOCK', category=self.cat, cost=Decimal('100'))
+        p.refresh_from_db()
+        self.assertEqual(p.quantity, Decimal('0'))
+        self.assertEqual(p.status, Products.STATUS_ACTIVE)
+
+    def test_stock_negativo_tambien_queda_activo(self):
+        p = Products.objects.create(code='E002', name='NEGATIVO', category=self.cat, cost=Decimal('100'), quantity=Decimal('1'))
+        p.update_quantity_on_sale(Decimal('3'))
+        p.refresh_from_db()
+        self.assertEqual(p.quantity, Decimal('-2.00'))
+        self.assertEqual(p.status, Products.STATUS_ACTIVE)
+
+    def test_sin_costo_queda_inactivo_aunque_tenga_stock(self):
+        p = Products.objects.create(code='E003', name='SIN COSTO', category=self.cat, cost=Decimal('0'), quantity=Decimal('10'))
+        p.refresh_from_db()
+        self.assertEqual(p.status, Products.STATUS_INACTIVE)
+
+    def test_eliminado_sigue_inactivo(self):
+        p = Products.objects.create(code='E004', name='ELIMINADO', category=self.cat, cost=Decimal('100'), quantity=Decimal('5'))
+        p.eliminar()
+        p = Products.todos.get(pk=p.pk)
+        p.update_status()
+        self.assertEqual(Products.todos.get(pk=p.pk).status, Products.STATUS_INACTIVE)
+
+
+# ---------------------------------------------------------------------------
+# Conteo de stock
+# ---------------------------------------------------------------------------
+from inventory.models import ConteoStock, ConteoStockRenglon
+from django.core.exceptions import ValidationError
+
+
+class ConteoDeStockTests(TestCase):
+
+    def setUp(self):
+        import json
+        self.json = json
+        self.user = User.objects.create_superuser('admin_test', 'a@a.com', 'clave-test')
+        self.client.force_login(self.user)
+        cat = Category.objects.create(name='Quesos', description='x')
+        self.queso = Products.objects.create(code='C001', name='QUESO CREMOSO', category=cat,
+                                             cost=Decimal('1000'), quantity=Decimal('200'))
+        self.tybo = Products.objects.create(code='C002', name='TYBO', category=cat, cost=Decimal('8000'),
+                                            quantity=Decimal('200'), tipo_venta=Products.TIPO_VENTA_FRACCIONABLE)
+        self.mani = Products.objects.create(code='C003', name='MANI', category=cat,
+                                            cost=Decimal('500'), quantity=Decimal('200'))
+
+    def iniciar(self):
+        self.client.post(reverse('inventory:conteo_stock'), {'accion': 'iniciar', 'nota': 'general'})
+        return ConteoStock.el_abierto()
+
+    def cargar(self, producto, contado):
+        return self.client.post(reverse('inventory:conteo_guardar'),
+                                data=self.json.dumps({'producto_id': producto.pk, 'contado': contado}),
+                                content_type='application/json').json()
+
+    def stock(self, producto):
+        return Products.todos.get(pk=producto.pk).quantity
+
+    # --- empezar ---
+    def test_empezar_un_conteo(self):
+        conteo = self.iniciar()
+        self.assertIsNotNone(conteo)
+        self.assertEqual(conteo.iniciado_por, self.user)
+        self.assertEqual(conteo.nota, 'general')
+
+    def test_no_se_abren_dos_conteos_a_la_vez(self):
+        self.iniciar()
+        self.iniciar()
+        self.assertEqual(ConteoStock.objects.count(), 1)
+
+    def test_empezar_no_cambia_ningun_stock(self):
+        self.iniciar()
+        self.assertEqual(self.stock(self.queso), Decimal('200.00'))
+
+    # --- cargar ---
+    def test_cargar_pone_el_stock_contado_y_anota_lo_que_habia(self):
+        conteo = self.iniciar()
+        resp = self.cargar(self.queso, 12)
+        self.assertTrue(resp['ok'], resp)
+        self.assertEqual(self.stock(self.queso), Decimal('12.00'))
+        r = ConteoStockRenglon.objects.get(conteo=conteo, product=self.queso)
+        self.assertEqual(r.stock_sistema, Decimal('200.00'))
+        self.assertEqual(r.contado, Decimal('12.00'))
+        self.assertEqual(r.diferencia, Decimal('-188.00'))
+        self.assertEqual(r.usuario, self.user)
+
+    def test_no_toca_costo_precios_ni_los_otros_productos(self):
+        self.iniciar()
+        self.cargar(self.queso, 12)
+        self.queso.refresh_from_db()
+        self.assertEqual(self.queso.cost, Decimal('1000.00'))
+        self.assertEqual(self.queso.precio_minorista, Decimal('1350.00'))
+        self.assertEqual(self.stock(self.mani), Decimal('200.00'))
+
+    def test_pesable_con_decimales(self):
+        self.iniciar()
+        self.cargar(self.tybo, 3.85)
+        self.assertEqual(self.stock(self.tybo), Decimal('3.85'))
+
+    def test_mas_de_dos_decimales_se_redondea_a_centesimos(self):
+        self.iniciar()
+        self.cargar(self.tybo, '3.846')
+        self.assertEqual(self.stock(self.tybo), Decimal('3.85'))
+
+    def test_contar_cero_deja_stock_cero_y_el_producto_sigue_activo(self):
+        self.iniciar()
+        self.cargar(self.queso, 0)
+        self.queso.refresh_from_db()
+        self.assertEqual(self.queso.quantity, Decimal('0.00'))
+        self.assertEqual(self.queso.status, Products.STATUS_ACTIVE)
+
+    def test_corregir_un_producto_ya_cargado(self):
+        """Si se cargo mal (12 en vez de 21) se vuelve a cargar: queda un solo renglon."""
+        conteo = self.iniciar()
+        self.cargar(self.queso, 12)
+        self.cargar(self.queso, 21)
+        self.assertEqual(self.stock(self.queso), Decimal('21.00'))
+        self.assertEqual(conteo.renglones.count(), 1)
+        r = conteo.renglones.get()
+        self.assertEqual(r.stock_sistema, Decimal('200.00'), 'se conserva lo que decia el sistema la primera vez')
+        self.assertEqual(r.contado, Decimal('21.00'))
+
+    def test_rechaza_negativos_texto_y_productos_inexistentes(self):
+        self.iniciar()
+        self.assertFalse(self.cargar(self.queso, -5)['ok'])
+        self.assertFalse(self.cargar(self.queso, 'doce')['ok'])
+        self.assertFalse(self.cargar(self.queso, None)['ok'])
+        self.assertFalse(self.cargar(self.queso, 'NaN')['ok'])
+        self.assertFalse(self.cargar(self.queso, 1000000)['ok'])
+        resp = self.client.post(reverse('inventory:conteo_guardar'),
+                                data=self.json.dumps({'producto_id': 99999, 'contado': 1}),
+                                content_type='application/json').json()
+        self.assertFalse(resp['ok'])
+        self.assertEqual(self.stock(self.queso), Decimal('200.00'))
+        self.assertEqual(ConteoStockRenglon.objects.count(), 0)
+
+    def test_sin_conteo_abierto_no_se_puede_cargar(self):
+        resp = self.cargar(self.queso, 12)
+        self.assertFalse(resp['ok'])
+        self.assertEqual(self.stock(self.queso), Decimal('200.00'))
+
+    def test_un_producto_eliminado_no_se_puede_contar(self):
+        self.iniciar()
+        self.mani.eliminar()
+        self.assertFalse(self.cargar(self.mani, 5)['ok'])
+
+    def test_guardar_exige_post(self):
+        self.iniciar()
+        self.assertEqual(self.client.get(reverse('inventory:conteo_guardar')).status_code, 405)
+
+    # --- ventas durante el conteo ---
+    def test_una_venta_despues_de_contar_descuenta_del_valor_contado(self):
+        self.iniciar()
+        self.cargar(self.queso, 12)
+        self.queso.update_quantity_on_sale(Decimal('2'))
+        self.assertEqual(self.stock(self.queso), Decimal('10.00'))
+
+    # --- cerrar ---
+    def test_cerrar_sin_tildar_deja_como_estan_los_no_contados(self):
+        conteo = self.iniciar()
+        self.cargar(self.queso, 12)
+        self.client.post(reverse('inventory:conteo_cerrar'), {})
+        conteo.refresh_from_db()
+        self.assertFalse(conteo.abierto)
+        self.assertEqual(conteo.cerrado_por, self.user)
+        self.assertEqual(self.stock(self.mani), Decimal('200.00'))
+        self.assertEqual(conteo.renglones.count(), 1)
+
+    def test_cerrar_tildando_deja_en_cero_los_no_contados(self):
+        conteo = self.iniciar()
+        self.cargar(self.queso, 12)
+        self.client.post(reverse('inventory:conteo_cerrar'), {'poner_en_cero': '1'})
+        self.assertEqual(self.stock(self.queso), Decimal('12.00'))
+        self.assertEqual(self.stock(self.mani), Decimal('0.00'))
+        self.assertEqual(self.stock(self.tybo), Decimal('0.00'))
+        automaticos = conteo.renglones.filter(automatico=True)
+        self.assertEqual(automaticos.count(), 2)
+        self.assertEqual(automaticos.get(product=self.mani).stock_sistema, Decimal('200.00'))
+
+    def test_cerrar_no_pone_en_cero_los_eliminados(self):
+        conteo = self.iniciar()
+        self.mani.eliminar()
+        self.client.post(reverse('inventory:conteo_cerrar'), {'poner_en_cero': '1'})
+        self.assertEqual(self.stock(self.mani), Decimal('200.00'))
+        self.assertFalse(conteo.renglones.filter(product=self.mani).exists())
+
+    def test_despues_de_cerrar_no_se_puede_cargar_y_se_puede_empezar_otro(self):
+        conteo = self.iniciar()
+        self.client.post(reverse('inventory:conteo_cerrar'), {})
+        self.assertFalse(self.cargar(self.queso, 5)['ok'])
+        with self.assertRaises(ValidationError):
+            ConteoStock.objects.get(pk=conteo.pk).cargar(self.queso, Decimal('5'))
+        self.assertNotEqual(self.iniciar().pk, conteo.pk)
+
+    # --- pantallas ---
+    def test_pantallas_abren(self):
+        self.assertEqual(self.client.get(reverse('inventory:conteo_stock')).status_code, 200)
+        conteo = self.iniciar()
+        self.cargar(self.queso, 12)
+        resp = self.client.get(reverse('inventory:conteo_stock'))
+        self.assertEqual(resp.status_code, 200)
+        datos = {p['code']: p for p in resp.context['productos']}
+        self.assertEqual(datos['C001']['contado'], 12.0)
+        self.assertEqual(datos['C001']['antes'], 200.0)
+        self.assertIsNone(datos['C002']['contado'])
+        html = self.client.get(reverse('inventory:conteo_detalle', args=[conteo.pk])).content.decode()
+        self.assertTrue('QUESO CREMOSO' in html and 'C001' in html)
+        self.client.post(reverse('inventory:conteo_cerrar'), {})
+        self.assertEqual(self.client.get(reverse('inventory:conteo_detalle', args=[conteo.pk])).status_code, 200)
+        self.assertEqual(self.client.get(reverse('inventory:conteo_stock')).status_code, 200)
+
+    def test_un_nombre_con_comillas_o_etiquetas_no_rompe_la_pantalla(self):
+        Products.objects.create(code='C009', name='QUESO "LA PAULINA" </script><b>x', category=self.queso.category, cost=Decimal('1'))
+        self.iniciar()
+        html = self.client.get(reverse('inventory:conteo_stock')).content.decode()
+        self.assertFalse('</script><b>x' in html)
+
+    def test_el_vendedor_no_entra(self):
+        from django.contrib.auth.models import Group
+        grupo, _ = Group.objects.get_or_create(name='Vendedor')
+        vendedor = User.objects.create_user('vendedora', password='clave-test')
+        vendedor.groups.add(grupo)
+        self.iniciar()
+        self.client.force_login(vendedor)
+        self.assertEqual(self.client.get(reverse('inventory:conteo_stock')).status_code, 403)
+        resp = self.client.post(reverse('inventory:conteo_guardar'),
+                                data=self.json.dumps({'producto_id': self.queso.pk, 'contado': 1}),
+                                content_type='application/json')
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(self.stock(self.queso), Decimal('200.00'))

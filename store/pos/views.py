@@ -32,6 +32,8 @@ def pos(request):
             'codigo_barras': product.codigo_barras or '',
             'tipo_venta': product.tipo_venta,
             'plu': product.plu or '',
+            # Para el cartel del POS cuando la cantidad supera el stock (no frena la venta)
+            'stock': float(product.quantity),
         })
     
     clientes = Cliente.objects.filter(activo=True).order_by('name')

@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% load formato %}
+
+{% block pageContent %}
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card py-2">
+        <div class="d-flex justify-content-between align-items-center px-3">
+            <h4 class="card-title mb-0">
+                Conteo del {{ conteo.fecha_inicio|date:"d/m/Y" }}
+                {% if conteo.abierto %}<span class="badge bg-warning text-dark">Abierto</span>{% else %}<span class="badge bg-secondary">Cerrado</span>{% endif %}
+            </h4>
+            <a href="{% url 'inventory:conteo_stock' %}" class="btn btn-secondary btn-sm">
+                {% if conteo.abierto %}Seguir contando{% else %}Volver{% endif %}
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card p-4">
+        <div class="row mb-3">
+            <div class="col-md-3"><span class="text-muted">Empezó</span><br><strong>{{ conteo.fecha_inicio|date:"d/m/Y H:i" }}</strong>{% if conteo.iniciado_por %} · {{ conteo.iniciado_por.username }}{% endif %}</div>
+            <div class="col-md-3"><span class="text-muted">Cerró</span><br><strong>{% if conteo.fecha_cierre %}{{ conteo.fecha_cierre|date:"d/m/Y H:i" }}{% else %}—{% endif %}</strong>{% if conteo.cerrado_por %} · {{ conteo.cerrado_por.username }}{% endif %}</div>
+            <div class="col-md-6"><span class="text-muted">Nota</span><br><strong>{{ conteo.nota|default:"—" }}</strong></div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-3"><span class="text-muted">Productos contados</span><br><strong id="dato-contados">{{ cantidad_contados }}</strong></div>
+            <div class="col-md-3"><span class="text-muted">Puestos en 0 por no contarse</span><br><strong id="dato-en-cero">{{ cantidad_en_cero }}</strong></div>
+            <div class="col-md-3"><span class="text-muted">Con diferencia</span><br><strong id="dato-con-diferencia">{{ cantidad_con_diferencia }}</strong></div>
+            <div class="col-md-3"><span class="text-muted">Diferencia al costo actual</span><br>
+                <strong class="text-danger">{{ valor_faltante|pesos }}</strong> de menos ·
+                <strong class="text-success">{{ valor_sobrante|pesos }}</strong> de más
+            </div>
+        </div>
+        {% if conteo.abierto and sin_contar %}
+        <div class="alert alert-info py-2">Todavía faltan contar <strong>{{ sin_contar|length }}</strong> productos.</div>
+        {% endif %}
+
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm" id="tabla-detalle-conteo">
+                <thead>
+                    <tr class="bg-dark bg-gradient">
+                        <th class="text-light text-start">Código</th>
+                        <th class="text-light text-start">Producto</th>
+                        <th class="text-light text-end">Sistema</th>
+                        <th class="text-light text-end">Contado</th>
+                        <th class="text-light text-end">Diferencia</th>
+                        <th class="text-light text-end">Al costo actual</th>
+                        <th class="text-light text-start">Cargó</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in renglones %}
+                    <tr>
+                        <td class="text-start" style="font-family: monospace;">{{ r.product.code }}</td>
+                        <td class="text-start">{{ r.product.name }}{% if r.product.eliminado %} <span class="text-muted">(eliminado)</span>{% endif %}</td>
+                        <td class="text-end">{{ r.stock_sistema|cantidad }}</td>
+                        <td class="text-end">{{ r.contado|cantidad }}</td>
+                        <td class="text-end {% if r.diferencia > 0 %}text-success fw-bold{% elif r.diferencia < 0 %}text-danger fw-bold{% else %}text-muted{% endif %}">
+                            {% if r.diferencia > 0 %}+{% endif %}{{ r.diferencia|cantidad }}
+                        </td>
+                        <td class="text-end">{% if r.diferencia > 0 %}+{{ r.valor_abs|pesos }}{% elif r.diferencia < 0 %}−{{ r.valor_abs|pesos }}{% else %}—{% endif %}</td>
+                        <td class="small text-start">
+                            {% if r.automatico %}<span class="text-muted">no se contó: puesto en 0</span>
+                            {% else %}{{ r.usuario.username|default:"—" }} · {{ r.fecha|date:"d/m H:i" }}{% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="text-center text-muted py-3">Todavía no se cargó ningún producto.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="text-muted small mb-0">
+            Diferencia = contado menos lo que decía el sistema. Primero aparecen los productos con diferencia.
+            El valor es orientativo: usa el costo que el producto tiene hoy.
+        </p>
+    </div>
+</div>
+{% endblock pageContent %}

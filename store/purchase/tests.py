@@ -456,3 +456,30 @@ class PantallaBorrarCompraTests(ComprasBase):
         # y el efecto real: stock devuelto, costo igual
         self.assertEqual(self.stock(self.tomate), Decimal('0'))
         self.assertEqual(self.costo(self.tomate), Decimal('1260.00'))
+
+
+class StockNegativoEnComprasTests(ComprasBase):
+    """
+    Regla del 02/10/2026: el stock puede quedar negativo. Antes se recortaba en cero,
+    y ese recorte perdia informacion: corregir una compra y volver atras dejaba otro stock.
+    """
+
+    def test_corregir_una_compra_y_volver_atras_deja_el_mismo_stock(self):
+        compra = self.crear_compra([(self.pickles, '100', '10')])
+        self.pickles.update_quantity_on_sale(Decimal('8'))          # se vendieron 8 -> quedan 2
+        self.editar_compra(compra, [(self.pickles, '100', '1')])     # se corrige a 1 -> 2 - 9 = -7
+        self.assertEqual(self.stock(self.pickles), Decimal('-7.00'))
+        self.editar_compra(compra, [(self.pickles, '100', '10')])    # se vuelve a 10 -> 2
+        self.assertEqual(self.stock(self.pickles), Decimal('2.00'))
+
+    def test_cargar_la_compra_despues_de_haber_vendido(self):
+        """Llego mercaderia, se vendio antes de cargar la factura: el stock negativo se corrige solo."""
+        self.pickles.update_quantity_on_sale(Decimal('3'))           # stock 0 -> -3
+        self.crear_compra([(self.pickles, '100', '10')])
+        self.assertEqual(self.stock(self.pickles), Decimal('7.00'))
+
+    def test_borrar_una_compra_ya_vendida_deja_el_stock_en_negativo(self):
+        compra = self.crear_compra([(self.pickles, '100', '10')])
+        self.pickles.update_quantity_on_sale(Decimal('8'))
+        self.client.post(reverse('purchase:purchase_delete', args=[compra.pk]))
+        self.assertEqual(self.stock(self.pickles), Decimal('-8.00'))

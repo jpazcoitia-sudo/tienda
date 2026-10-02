@@ -26,4 +26,9 @@ urlpatterns = [
     path('api/asignar-codigo-barras/', views.asignar_codigo_barras, name='asignar_codigo_barras'),
     path('exportar-plu-itegra/', views.exportar_plu_itegra, name='exportar_plu_itegra'),
     path('planilla-emergencia/', planilla.planilla_emergencia, name='planilla_emergencia'),
+    # Conteo de stock (inventario fisico)
+    path('conteo-stock/', views.conteo_stock, name='conteo_stock'),
+    path('conteo-stock/guardar/', views.conteo_guardar, name='conteo_guardar'),
+    path('conteo-stock/cerrar/', views.conteo_cerrar, name='conteo_cerrar'),
+    path('conteo-stock/<int:pk>/', views.conteo_detalle, name='conteo_detalle'),
 ]

@@ -1,0 +1,394 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load formato %}
+
+{% block pageContent %}
+<style>
+    /* Conteo de stock */
+    #tabla-conteo th { color: #fff; font-size: 0.85rem; white-space: nowrap; }
+    #tabla-conteo td { vertical-align: middle; }
+    #tabla-conteo input.contado { width: 110px; text-align: right; font-size: 1.05rem; }
+    #tabla-conteo tr.pendiente input.contado { background: #fff3cd; border-color: #ffc107; }
+    #tabla-conteo tr.contado td { background: #e9f7ef; }
+    #tabla-conteo .codigo { font-family: monospace; white-space: nowrap; }
+    #tabla-conteo .resultado { font-size: 0.9rem; min-width: 190px; }
+    .dif-mas { color: #146c43; font-weight: 600; }
+    .dif-menos { color: #b02a37; font-weight: 600; }
+    @media print {
+        .mdc-drawer, .mdc-top-app-bar, header, footer, .no-imprimir { display: none !important; }
+        .mdc-drawer-app-content, .page-wrapper, .main-wrapper { margin: 0 !important; padding: 0 !important; }
+        #tabla-conteo tr[hidden] { display: table-row !important; }
+        #tabla-conteo input.contado { border: none; border-bottom: 1px solid #000; background: none !important; }
+        #tabla-conteo tr.contado td { background: none; }
+    }
+</style>
+
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card py-2">
+        <div class="d-flex justify-content-between align-items-center px-3">
+            <h4 class="card-title mb-0">Conteo de stock</h4>
+            {% if conteo %}
+            <div class="no-imprimir">
+                <a href="{% url 'inventory:conteo_detalle' conteo.pk %}" class="btn btn-outline-secondary btn-sm">Ver diferencias hasta ahora</a>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-imprimir">Imprimir planilla</button>
+                <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modal-cerrar">Cerrar conteo…</button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if not conteo %}
+<!-- ============ No hay conteo abierto ============ -->
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card p-4">
+        <h5>Empezar un conteo</h5>
+        <p class="mb-2">
+            Sirve para poner en el sistema el stock real, contando la mercadería. Hay {{ total_productos }} productos.
+        </p>
+        <ul class="mb-3">
+            <li>Se carga producto por producto: al guardar uno, su stock pasa a ser lo contado <strong>en ese momento</strong>.</li>
+            <li>No cambia costos, precios ni la caja. Solo el stock.</li>
+            <li>Queda anotado cuánto decía el sistema, cuánto se contó, quién lo cargó y cuándo.</li>
+            <li>Se puede hacer en varios días: el conteo queda abierto hasta que lo cierres.</li>
+            <li>Conviene cargar cada producto apenas se cuenta. Si entre contar y cargar hubo ventas de ese producto, esas ventas no quedan descontadas.</li>
+        </ul>
+        <form method="post" class="row g-2 align-items-end" id="form-iniciar">
+            {% csrf_token %}
+            <input type="hidden" name="accion" value="iniciar">
+            <div class="col-md-6">
+                <label for="nota" class="form-label">Nota (opcional)</label>
+                <input type="text" class="form-control" id="nota" name="nota" maxlength="200" placeholder="Ej: conteo general de octubre">
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary" id="btn-iniciar">Empezar conteo</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% else %}
+<!-- ============ Conteo abierto ============ -->
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12 no-imprimir">
+    <div class="mdc-card p-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
+            <div>
+                Conteo empezado el <strong>{{ conteo.fecha_inicio|date:"d/m/Y H:i" }}</strong>
+                {% if conteo.iniciado_por %}por <strong>{{ conteo.iniciado_por.username }}</strong>{% endif %}
+                {% if conteo.nota %}<span class="text-muted">· {{ conteo.nota }}</span>{% endif %}
+            </div>
+            <div>
+                <span class="badge bg-success fs-6" id="contador-contados">0 contados</span>
+                <span class="badge bg-secondary fs-6" id="contador-faltan">0 faltan</span>
+                <span class="badge bg-warning text-dark fs-6" id="contador-pendientes" hidden>0 sin guardar</span>
+            </div>
+        </div>
+        <div class="row g-2 align-items-end">
+            <div class="col-md-6">
+                <label class="form-label mb-1" for="buscar">Buscar: escaneá el código de barras o escribí código o nombre</label>
+                <input type="text" id="buscar" class="form-control form-control-lg" autocomplete="off" autofocus
+                       placeholder="Escanear o escribir…">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label mb-1" for="filtro-estado">Mostrar</label>
+                <select id="filtro-estado" class="form-select">
+                    <option value="todos">Todos</option>
+                    <option value="faltan">Los que faltan contar</option>
+                    <option value="contados">Los ya contados</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label mb-1" for="filtro-categoria">Categoría</label>
+                <select id="filtro-categoria" class="form-select">
+                    <option value="">Todas</option>
+                </select>
+            </div>
+        </div>
+        <div class="text-muted small mt-2">
+            Escribí la cantidad y apretá <strong>Enter</strong> para guardar. Los pesables van en kilos (ej: 3,85).
+            Para corregir un producto ya cargado, escribí el valor nuevo y Enter.
+        </div>
+    </div>
+</div>
+
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card p-3">
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm" id="tabla-conteo">
+                <thead>
+                    <tr class="bg-dark bg-gradient">
+                        <th class="text-start">Código</th>
+                        <th class="text-start">Producto</th>
+                        <th class="text-center">Se vende por</th>
+                        <th class="text-end">Sistema</th>
+                        <th class="text-center">Contado</th>
+                        <th class="text-start no-imprimir">Resultado</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div id="sin-resultados" class="text-center text-muted py-3" hidden>Ningún producto coincide con la búsqueda.</div>
+    </div>
+</div>
+
+<!-- Cerrar conteo -->
+<div class="modal fade" id="modal-cerrar" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'inventory:conteo_cerrar' %}" id="form-cerrar">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Cerrar el conteo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Se contaron <strong id="cerrar-contados">0</strong> productos y faltan <strong id="cerrar-faltan">0</strong>.</p>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="poner_en_cero" value="1" id="poner-en-cero">
+                        <label class="form-check-label" for="poner-en-cero">
+                            Dejar en stock <strong>0</strong> los productos que no se contaron
+                        </label>
+                    </div>
+                    <div class="alert alert-warning mt-3 mb-0 small">
+                        Tildalo solo si lo que no se contó es porque <strong>no hay</strong>.
+                        Si quedaron productos sin contar por falta de tiempo, dejalo sin tildar: conservan el stock que tienen.
+                        Cerrar no se puede deshacer, pero siempre podés empezar otro conteo.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Seguir contando</button>
+                    <button type="submit" class="btn btn-danger btn-sm" id="btn-confirmar-cierre">Cerrar conteo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if anteriores %}
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12 no-imprimir">
+    <div class="mdc-card p-3">
+        <h5 class="mb-2">Conteos anteriores</h5>
+        <table class="table table-sm mb-0">
+            <thead><tr><th>Empezó</th><th>Cerró</th><th>Nota</th><th class="text-end">Productos</th><th></th></tr></thead>
+            <tbody>
+                {% for c in anteriores %}
+                <tr>
+                    <td>{{ c.fecha_inicio|date:"d/m/Y H:i" }}</td>
+                    <td>{{ c.fecha_cierre|date:"d/m/Y H:i" }}</td>
+                    <td>{{ c.nota|default:"—" }}</td>
+                    <td class="text-end">{{ c.renglones.count }}</td>
+                    <td class="text-end"><a href="{% url 'inventory:conteo_detalle' c.pk %}" class="btn btn-outline-primary btn-sm">Ver</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock pageContent %}
+
+{% block ScriptBlock %}
+{% if conteo %}
+<script src="{% static 'js/formato.js' %}"></script>
+{{ productos|json_script:"productos-data" }}
+<script>
+(function() {
+    // Los datos llegan con json_script: es la forma segura (un nombre con comillas o < no rompe nada).
+    var productos = JSON.parse(document.getElementById('productos-data').textContent);
+    var porId = {};
+    var tbody = document.querySelector('#tabla-conteo tbody');
+    var buscar = document.getElementById('buscar');
+    var filtroEstado = document.getElementById('filtro-estado');
+    var filtroCategoria = document.getElementById('filtro-categoria');
+    var URL_GUARDAR = "{% url 'inventory:conteo_guardar' %}";
+    var CSRF = '{{ csrf_token }}';
+
+    function sinAcentos(t) {
+        return String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    }
+    function cant(n) { return formatearCantidad(Math.round(n * 100) / 100); }
+
+    // ---- armar la tabla (una vez) ----
+    var categorias = {};
+    productos.forEach(function(p) {
+        porId[p.id] = p;
+        if (p.categoria) categorias[p.categoria] = true;
+        p.texto = sinAcentos(p.code + ' ' + p.name + ' ' + p.codigo_barras);
+
+        var tr = document.createElement('tr');
+        tr.dataset.id = p.id;
+        function celda(texto, clase) {
+            var td = document.createElement('td');
+            if (clase) td.className = clase;
+            td.textContent = texto;
+            tr.appendChild(td);
+            return td;
+        }
+        celda(p.code, 'codigo text-start');
+        var tdNombre = celda(p.name, 'text-start');
+        if (p.categoria) {
+            var small = document.createElement('div');
+            small.className = 'small text-muted';
+            small.textContent = p.categoria;
+            tdNombre.appendChild(small);
+        }
+        celda(p.tipo_venta === 'fraccionable' ? 'kilo' : 'unidad', 'text-center');
+        celda('', 'text-end sistema');
+        var tdInput = celda('', 'text-center');
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.inputMode = 'decimal';
+        input.autocomplete = 'off';
+        input.className = 'form-control form-control-sm contado d-inline-block';
+        input.id = 'contado-' + p.id;
+        input.setAttribute('aria-label', 'Contado de ' + p.name);
+        tdInput.appendChild(input);
+        celda('', 'resultado text-start no-imprimir');
+        tbody.appendChild(tr);
+        p.tr = tr;
+        p.input = input;
+        pintar(p);
+    });
+    Object.keys(categorias).sort().forEach(function(c) {
+        var o = document.createElement('option');
+        o.value = c; o.textContent = c;
+        filtroCategoria.appendChild(o);
+    });
+
+    // ---- mostrar el estado de un producto en su fila ----
+    function pintar(p, error) {
+        var tr = p.tr;
+        tr.querySelector('.sistema').textContent = cant(p.contado === null ? p.stock : p.antes);
+        var res = tr.querySelector('.resultado');
+        res.textContent = '';
+        tr.classList.toggle('contado', p.contado !== null);
+        if (error) {
+            var e = document.createElement('span');
+            e.className = 'text-danger fw-bold';
+            e.textContent = '✗ ' + error;
+            res.appendChild(e);
+            return;
+        }
+        if (p.contado !== null) {
+            var dif = Math.round((p.contado - p.antes) * 100) / 100;
+            var ok = document.createElement('span');
+            ok.textContent = '✓ ' + cant(p.contado) + '  ';
+            res.appendChild(ok);
+            var d = document.createElement('span');
+            if (dif === 0) { d.className = 'text-muted'; d.textContent = 'sin diferencia'; }
+            else {
+                d.className = dif > 0 ? 'dif-mas' : 'dif-menos';
+                d.textContent = (dif > 0 ? '+' : '−') + cant(Math.abs(dif)) + (dif > 0 ? ' de más' : ' de menos');
+            }
+            res.appendChild(d);
+            var h = document.createElement('div');
+            h.className = 'small text-muted';
+            h.textContent = p.hora;
+            res.appendChild(h);
+        }
+    }
+
+    // ---- filtros ----
+    function filtrar() {
+        var texto = sinAcentos(buscar.value.trim());
+        var estado = filtroEstado.value;
+        var categoria = filtroCategoria.value;
+        var visibles = [];
+        productos.forEach(function(p) {
+            var ver = (!texto || p.texto.indexOf(texto) !== -1)
+                   && (!categoria || p.categoria === categoria)
+                   && (estado === 'todos' || (estado === 'faltan') === (p.contado === null));
+            // un producto con un valor escrito y sin guardar no se esconde nunca
+            if (p.tr.classList.contains('pendiente')) ver = true;
+            p.tr.hidden = !ver;
+            if (ver) visibles.push(p);
+        });
+        document.getElementById('sin-resultados').hidden = visibles.length > 0;
+        return visibles;
+    }
+
+    function contadores() {
+        var contados = productos.filter(function(p) { return p.contado !== null; }).length;
+        var pendientes = tbody.querySelectorAll('tr.pendiente').length;
+        document.getElementById('contador-contados').textContent = contados + ' contados';
+        document.getElementById('contador-faltan').textContent = (productos.length - contados) + ' faltan';
+        var cp = document.getElementById('contador-pendientes');
+        cp.textContent = pendientes + ' sin guardar';
+        cp.hidden = pendientes === 0;
+        document.getElementById('cerrar-contados').textContent = contados;
+        document.getElementById('cerrar-faltan').textContent = productos.length - contados;
+    }
+
+    // ---- guardar un producto ----
+    function guardar(p) {
+        var texto = p.input.value.trim();
+        if (texto === '') return;
+        if (!/^[0-9.,]+$/.test(texto)) { pintar(p, 'Escribí solo números'); return; }
+        var valor = parsearNumero(texto);
+        p.input.disabled = true;
+        fetch(URL_GUARDAR, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+            body: JSON.stringify({ producto_id: p.id, contado: valor })
+        }).then(function(r) {
+            if (!r.ok) throw new Error('El servidor respondió ' + r.status);
+            return r.json();
+        }).then(function(resp) {
+            p.input.disabled = false;
+            if (!resp.ok) { pintar(p, resp.error); return; }
+            p.stock = resp.producto.stock;
+            p.contado = resp.producto.contado;
+            p.antes = resp.producto.antes;
+            p.hora = resp.producto.hora;
+            p.input.value = '';
+            p.tr.classList.remove('pendiente');
+            pintar(p);
+            contadores();
+            // volver al buscador para el producto siguiente
+            buscar.value = '';
+            filtrar();
+            buscar.focus();
+        }).catch(function(err) {
+            p.input.disabled = false;
+            pintar(p, 'No se guardó (' + err.message + '). Probá de nuevo.');
+        });
+    }
+
+    // ---- eventos ----
+    buscar.addEventListener('input', filtrar);
+    filtroEstado.addEventListener('change', filtrar);
+    filtroCategoria.addEventListener('change', filtrar);
+    buscar.addEventListener('keydown', function(e) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        var visibles = filtrar();
+        // Enter en el buscador (o el lector de codigos): pasa al casillero del primer resultado
+        if (visibles.length > 0) { visibles[0].input.focus(); visibles[0].input.select(); }
+    });
+    tbody.addEventListener('input', function(e) {
+        if (!e.target.classList.contains('contado')) return;
+        var tr = e.target.closest('tr');
+        tr.classList.toggle('pendiente', e.target.value.trim() !== '');
+        contadores();
+    });
+    tbody.addEventListener('keydown', function(e) {
+        if (e.key !== 'Enter' || !e.target.classList.contains('contado')) return;
+        e.preventDefault();
+        guardar(porId[e.target.closest('tr').dataset.id]);
+    });
+    window.addEventListener('beforeunload', function(e) {
+        if (tbody.querySelector('tr.pendiente')) { e.preventDefault(); e.returnValue = ''; }
+    });
+    document.getElementById('form-cerrar').addEventListener('submit', function() {
+        // al cerrar, lo escrito sin guardar se descarta a proposito
+        tbody.querySelectorAll('tr.pendiente').forEach(function(tr) { tr.classList.remove('pendiente'); });
+    });
+    document.getElementById('btn-imprimir').addEventListener('click', function() { window.print(); });
+
+    contadores();
+    filtrar();
+})();
+</script>
+{% endif %}
+{% endblock ScriptBlock %}

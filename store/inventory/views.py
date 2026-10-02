@@ -8,14 +8,17 @@ from django.http import HttpResponse, JsonResponse
 from django.db.models import Count, Sum, Q, Prefetch, Max
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.urls import reverse_lazy
 from django.views import generic
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.messages.views import SuccessMessageMixin
 
-from .models import Category, Products
+from .models import Category, Products, ConteoStock, ConteoStockRenglon
+from django.core.exceptions import ValidationError
+from decimal import InvalidOperation
+from django.views.decorators.http import require_POST
 from .forms import ProductsForm, CategoryForm
 from purchase.models import Supplier, PurchaseProduct
 from django.db import transaction
@@ -531,3 +534,137 @@ def exportar_plu_itegra(request):
     )
     response['Content-Disposition'] = 'attachment; filename="plu_itegra.csv"'
     return response
+
+
+# ======================================================================
+# CONTEO DE STOCK (inventario fisico)
+#   Pantalla donde se carga lo contado de cada producto. Al guardar un producto
+#   su stock pasa a ser lo contado y queda anotado cuanto decia el sistema.
+#   No toca costos, precios ni caja.
+# ======================================================================
+def _dato_conteo(producto, renglon=None):
+    """Lo que la pantalla necesita de cada producto (se manda como JSON)."""
+    return {
+        'id': producto.id,
+        'code': producto.code,
+        'name': producto.name,
+        'categoria': producto.category.name if producto.category else '',
+        'tipo_venta': producto.tipo_venta,
+        'codigo_barras': producto.codigo_barras or '',
+        'stock': float(producto.quantity),
+        'contado': float(renglon.contado) if renglon else None,
+        'antes': float(renglon.stock_sistema) if renglon else None,
+        'hora': renglon.fecha.strftime('%d/%m %H:%M') if renglon else '',
+    }
+
+
+@login_required
+@permission_required('inventory.change_products', raise_exception=True)
+def conteo_stock(request):
+    """Pantalla del conteo: empezar uno, cargar productos, cerrarlo y ver los anteriores."""
+    conteo = ConteoStock.el_abierto()
+
+    if request.method == 'POST' and request.POST.get('accion') == 'iniciar':
+        if conteo is None:
+            conteo = ConteoStock.objects.create(
+                iniciado_por=request.user,
+                nota=(request.POST.get('nota') or '').strip()[:200])
+            messages.success(request, "Conteo iniciado. Cargá lo contado de cada producto.")
+        return redirect('inventory:conteo_stock')
+
+    productos_data = []
+    if conteo:
+        renglones = {r.product_id: r for r in conteo.renglones.all()}
+        for producto in Products.objects.select_related('category').order_by('name'):
+            productos_data.append(_dato_conteo(producto, renglones.get(producto.id)))
+
+    context = {
+        'page_title': 'Conteo de stock',
+        'conteo': conteo,
+        'productos': productos_data,
+        'anteriores': ConteoStock.objects.filter(fecha_cierre__isnull=False)[:20],
+        'total_productos': Products.objects.count(),
+    }
+    return render(request, 'inventory/conteo_stock.html', context)
+
+
+@login_required
+@permission_required('inventory.change_products', raise_exception=True)
+@require_POST
+def conteo_guardar(request):
+    """Guarda lo contado de UN producto (lo llama la pantalla con AJAX)."""
+    conteo = ConteoStock.el_abierto()
+    if conteo is None:
+        return JsonResponse({'ok': False, 'error': 'No hay un conteo abierto. Recargá la página.'})
+    try:
+        data = json.loads(request.body or '{}')
+        producto = Products.objects.get(pk=data.get('producto_id'))
+        contado = Decimal(str(data.get('contado')))
+        if not contado.is_finite():
+            raise InvalidOperation
+    except Products.DoesNotExist:
+        return JsonResponse({'ok': False, 'error': 'Producto no encontrado (¿se eliminó?).'})
+    except (InvalidOperation, ValueError, TypeError):
+        return JsonResponse({'ok': False, 'error': 'La cantidad no es un número.'})
+    if contado < 0:
+        return JsonResponse({'ok': False, 'error': 'La cantidad no puede ser negativa.'})
+    if contado > Decimal('99999'):
+        return JsonResponse({'ok': False, 'error': 'La cantidad es demasiado grande. Revisala.'})
+
+    try:
+        renglon = conteo.cargar(producto, contado, usuario=request.user)
+    except ValidationError as e:
+        return JsonResponse({'ok': False, 'error': ' '.join(e.messages)})
+
+    producto.refresh_from_db()
+    return JsonResponse({
+        'ok': True,
+        'producto': _dato_conteo(producto, renglon),
+        'contados': conteo.renglones.count(),
+    })
+
+
+@login_required
+@permission_required('inventory.change_products', raise_exception=True)
+@require_POST
+def conteo_cerrar(request):
+    """Cierra el conteo abierto. Opcional: deja en 0 los productos que no se contaron."""
+    conteo = ConteoStock.el_abierto()
+    if conteo is None:
+        messages.error(request, "No hay un conteo abierto.")
+        return redirect('inventory:conteo_stock')
+    en_cero = conteo.cerrar(
+        usuario=request.user,
+        poner_en_cero_los_no_contados=request.POST.get('poner_en_cero') == '1')
+    if en_cero == 1:
+        messages.success(request, "Conteo cerrado. 1 producto que no se contó quedó con stock 0.")
+    elif en_cero:
+        messages.success(request, f"Conteo cerrado. {en_cero} productos que no se contaron quedaron con stock 0.")
+    else:
+        messages.success(request, "Conteo cerrado.")
+    return redirect('inventory:conteo_detalle', pk=conteo.pk)
+
+
+@login_required
+@permission_required('inventory.change_products', raise_exception=True)
+def conteo_detalle(request, pk):
+    """Resultado de un conteo: lo que decia el sistema, lo contado y la diferencia."""
+    conteo = get_object_or_404(ConteoStock, pk=pk)
+    renglones = list(conteo.renglones.select_related('product', 'usuario'))
+    for r in renglones:
+        # Diferencia valorizada al costo actual del producto (orientativa)
+        r.valor_diferencia = r.diferencia * r.product.cost
+        r.valor_abs = abs(r.valor_diferencia)
+    con_diferencia = [r for r in renglones if r.diferencia != 0]
+    context = {
+        'page_title': 'Conteo de stock',
+        'conteo': conteo,
+        'renglones': sorted(renglones, key=lambda r: (r.diferencia == 0, r.product.name.lower())),
+        'cantidad_contados': sum(1 for r in renglones if not r.automatico),
+        'cantidad_en_cero': sum(1 for r in renglones if r.automatico),
+        'cantidad_con_diferencia': len(con_diferencia),
+        'valor_faltante': -sum((r.valor_diferencia for r in renglones if r.diferencia < 0), Decimal('0')),
+        'valor_sobrante': sum((r.valor_diferencia for r in renglones if r.diferencia > 0), Decimal('0')),
+        'sin_contar': conteo.productos_sin_contar() if conteo.abierto else [],
+    }
+    return render(request, 'inventory/conteo_detalle.html', context)

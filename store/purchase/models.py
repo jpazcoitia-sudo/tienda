@@ -18,7 +18,8 @@ def aplicar_diferencia_stock(cantidades_antes, cantidades_despues):
     - Borrar una compra:  antes = sus renglones,    despues = {} (nada).
 
     Se usa F() para que la cuenta la haga la base de datos sobre el valor actual.
-    El stock nunca queda negativo y se actualiza el estado (activo/inactivo).
+    El stock puede quedar negativo (regla del 02/10/2026): no se recorta en cero,
+    porque recortar pierde informacion (editar 10 -> 1 -> 10 dejaba un stock distinto).
     """
     ids = set(cantidades_antes) | set(cantidades_despues)
     for product_id in ids:
@@ -28,9 +29,6 @@ def aplicar_diferencia_stock(cantidades_antes, cantidades_despues):
             Products.todos.filter(pk=product_id).update(quantity=F('quantity') + diferencia)
 
     for producto in Products.todos.filter(pk__in=ids):
-        if producto.quantity < 0:
-            producto.quantity = Decimal('0')
-            producto.save(update_fields=['quantity'])
         producto.update_status()
 
 

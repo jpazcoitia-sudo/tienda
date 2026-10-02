@@ -168,6 +168,8 @@
                     </div>
                 </div>
             </fieldset>
+            <!-- Cartel de stock: avisa, NO frena la venta (regla del 02/10/2026) -->
+            <div id="aviso-stock-general" class="alert alert-warning py-2 px-3 mt-1 mb-0 fw-bold" role="alert" hidden></div>
             <div class="row mt-1">
                 <div class="col-md-12 text-end">
                     <button class="btn btn-primary btn-sm rounded-0" type="button" id="check_out"><i class="mdi mdi-save"></i> Procesar</button>
@@ -297,6 +299,40 @@
         $('[name="grand_total"]').val(total_con_descuento);
         $('#sub_total').text(formatearPeso(sub_total));
         $('[name="sub_total"]').val(sub_total);
+        avisarStock();
+    }
+
+    // Cartel de stock. NO frena la venta: marca los renglones donde lo que se vende
+    // supera lo que el sistema cree tener, para que el vendedor verifique la mercaderia.
+    // (El stock de cada producto es el del momento en que se abrio o actualizo esta pantalla.)
+    function avisarStock() {
+        var pedido = {};   // cantidad total de cada producto en el carrito (puede estar en varios renglones)
+        $('#POS-field table tbody tr').each(function() {
+            var id = $(this).find('[name="product[]"]').val();
+            var qty = parsearNumero($(this).find('[name="qty[]"]').val());
+            pedido[id] = (pedido[id] || 0) + (qty > 0 ? qty : 0);
+        });
+        var productos = {};
+        $('#POS-field table tbody tr').each(function() {
+            var id = $(this).find('[name="product[]"]').val();
+            var p = prod_arr[id];
+            var supera = !!p && typeof p.stock === 'number' && pedido[id] > p.stock + 0.0001;
+            $(this).toggleClass('table-warning', supera);
+            $(this).find('.aviso-stock').remove();
+            if (supera) {
+                productos[id] = true;
+                $(this).find('.product_name').append(
+                    $('<div class="aviso-stock small fw-bold text-danger"></div>')
+                        .text('⚠ En el sistema hay ' + formatearCantidad(p.stock) + '. Verificá.'));
+            }
+        });
+        var cuantos = Object.keys(productos).length;
+        var cartel = $('#aviso-stock-general');
+        if (cuantos > 0) {
+            cartel.text('⚠ ' + (cuantos === 1 ? 'Hay 1 producto' : 'Hay ' + cuantos + ' productos') +
+                        ' con más cantidad que el stock del sistema. La venta se puede hacer igual: verificá la mercadería.');
+        }
+        cartel.prop('hidden', cuantos === 0);
     }
 
     function actualizarPreciosEnTabla() {
