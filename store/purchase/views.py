@@ -19,6 +19,41 @@ from inventory.models import Products
 
 from django.core.exceptions import ValidationError
 
+def _numero(texto):
+    """Convierte lo que manda el formulario a Decimal (acepta coma o punto decimal)."""
+    return Decimal(str(texto or 0).replace(',', '.'))
+
+
+def _renglones_del_formulario(request):
+    """
+    Lee los renglones que manda la pantalla de compra (crear o editar).
+    Devuelve una lista de (producto, costo_de_factura, cantidad).
+    """
+    product_ids = request.POST.getlist('product[]')
+    costs = request.POST.getlist('cost[]')
+    qtys = request.POST.getlist('qty[]')
+    renglones = []
+    for i in range(len(product_ids)):
+        producto = Products.objects.get(id=product_ids[i])
+        renglones.append((producto, _numero(costs[i]), _numero(qtys[i])))
+    return renglones
+
+
+def _productos_para_pantalla():
+    """Productos + el JSON que usa el JavaScript de la pantalla de compra."""
+    products = Products.objects.all().order_by('name')
+    products_json = {}
+    for product in products:
+        products_json[product.id] = {
+            'id': product.id,
+            'code': product.code,
+            'name': product.name,
+            'cost': float(product.cost),
+            'codigo_barras': product.codigo_barras or '',
+        }
+    return products, products_json
+
+
 class SupplierList(LoginRequiredMixin, PermissionRequiredMixin, generic.ListView):
     model = Supplier
     template_name ='purchases/supplier_list.html'
@@ -84,20 +119,10 @@ class PurchaseCreate(LoginRequiredMixin, PermissionRequiredMixin, generic.Templa
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['suppliers'] = Supplier.objects.all().order_by('name')
-        context['products'] = Products.objects.all().order_by('name')
-        
-        # Crear JSON de productos para JavaScript
-        products_json = {}
-        for product in context['products']:
-            products_json[product.id] = {
-                'id': product.id,
-                'code': product.code,
-                'name': product.name,
-                'cost': float(product.cost),
-                'codigo_barras': product.codigo_barras or '',
-            }
+        products, products_json = _productos_para_pantalla()
+        context['products'] = products
         context['products_json'] = json.dumps(products_json)
-        
+        context['items_json'] = '[]'   # compra nueva: sin renglones precargados
         return context
     
     @method_decorator(csrf_exempt)
@@ -107,80 +132,26 @@ class PurchaseCreate(LoginRequiredMixin, PermissionRequiredMixin, generic.Templa
     def post(self, request, *args, **kwargs):
         try:
             with transaction.atomic():
-                supplier_id = request.POST.get('supplier')
-                numero_comprobante = request.POST.get('numero_comprobante', '')
-                product_ids = request.POST.getlist('product[]')
-                costs = request.POST.getlist('cost[]')
-                qtys = request.POST.getlist('qty[]')
-                
-                # IVA y Percepción como montos fijos
-                iva_monto = Decimal(str(request.POST.get('iva_pct', 0) or 0).replace(',', '.'))
-                perc_monto = Decimal(str(request.POST.get('perc_pct', 0) or 0).replace(',', '.'))
-                
-                if not product_ids:
+                renglones = _renglones_del_formulario(request)
+                if not renglones:
                     messages.error(request, "Debe agregar al menos un producto.")
                     return redirect('purchase:purchase_create')
 
-                supplier = Supplier.objects.get(id=supplier_id)
+                supplier = Supplier.objects.get(id=request.POST.get('supplier'))
                 purchase = Purchase.objects.create(
                     supplier=supplier,
-                    numero_comprobante=numero_comprobante
+                    numero_comprobante=request.POST.get('numero_comprobante', '')
                 )
 
-                # Calcular subtotal para distribuir IVA y Percepción
-                subtotal = Decimal(0)
-                items_data = []
-                for i in range(len(product_ids)):
-                    cost = Decimal(str(costs[i]).replace(',', '.'))
-                    qty = Decimal(str(qtys[i]).replace(',', '.'))
-                    subtotal += cost * qty
-                    items_data.append({
-                        'product_id': product_ids[i],
-                        'cost': cost,
-                        'qty': qty
-                    })
-
-                # Distribuir IVA y Percepción proporcionalmente
-                total_impuestos = iva_monto + perc_monto
-                total = Decimal(0)
-
-                for item in items_data:
-                    linea = item['cost'] * item['qty']
-                    proporcion = linea / subtotal if subtotal > 0 else Decimal(0)
-                    impuesto_linea = total_impuestos * proporcion
-                    costo_final = item['cost'] + (impuesto_linea / item['qty'])
-
-                    product = Products.objects.get(id=item['product_id'])
-                    PurchaseProduct.objects.create(
-                        purchase=purchase,
-                        supplier=supplier,
-                        product=product,
-                        cost=costo_final.quantize(Decimal('0.0001')),
-                        qty=item['qty']
-                    )
-                    total += costo_final * item['qty']
-
-                purchase.total = total
-                purchase.subtotal_productos = subtotal  # ← el subtotal SIN impuestos
-                purchase.iva_monto = iva_monto
-                purchase.perc_monto = perc_monto
-                purchase.save()
-                
-                # Costo de cada producto = promedio ponderado de sus renglones EN ESTA compra.
-                # (si el producto aparece una sola vez, es identico al costo de ese renglon)
-                _acc = {}
-                for _it in purchase.items.select_related('product'):
-                    if not _it.product:
-                        continue
-                    _d = _acc.setdefault(_it.product_id, {'cq': Decimal('0'), 'q': Decimal('0'), 'prod': _it.product})
-                    _d['cq'] += _it.cost * _it.qty
-                    _d['q'] += _it.qty
-                for _d in _acc.values():
-                    if _d['q'] > 0:
-                        _d['prod'].update_cost((_d['cq'] / _d['q']).quantize(Decimal('0.0001')))
+                # IVA y Percepción llegan como montos fijos (los campos se llaman *_pct por historia).
+                purchase.guardar_renglones(
+                    renglones,
+                    iva_monto=_numero(request.POST.get('iva_pct')),
+                    perc_monto=_numero(request.POST.get('perc_pct')),
+                )
 
                 accion = request.POST.get('accion', 'guardar')
-                messages.success(request, f"Compra #{purchase.id} registrada. Total: AR$ {total:,.2f}")
+                messages.success(request, f"Compra #{purchase.id} registrada. Total: AR$ {purchase.total:,.2f}")
 
                 if accion == 'guardar_pagar':
                     return redirect('purchase:purchase_pagar', pk=purchase.pk)
@@ -193,31 +164,32 @@ class PurchaseCreate(LoginRequiredMixin, PermissionRequiredMixin, generic.Templa
 
     
 class PurchaseUpdate(LoginRequiredMixin, PermissionRequiredMixin, generic.View):
-    template_name = 'purchases/purchase_update.html'
+    # Editar usa LA MISMA pantalla que Crear, con los datos de la compra precargados.
+    template_name = 'purchases/purchase_create.html'
     permission_required = 'purchase.change_purchaseproduct'
 
     def get(self, request, pk):
         purchase = get_object_or_404(Purchase, pk=pk)
-        items = purchase.items.all()
-        suppliers = Supplier.objects.all().order_by('name')
-        products = Products.objects.all().order_by('name')
-        
-        products_json = {}
-        for product in products:
-            products_json[product.id] = {
-                'id': product.id,
-                'code': product.code,
-                'name': product.name,
-                'cost': float(product.cost),
-                'codigo_barras': product.codigo_barras or '',
-            }
-        
+        products, products_json = _productos_para_pantalla()
+
+        # Renglones actuales, con el costo DE FACTURA (sin impuestos): es lo que la
+        # pantalla muestra y reenvia. El IVA y la percepcion van en sus propios campos.
+        items = []
+        for item in purchase.items.select_related('product').order_by('id'):
+            if not item.product:
+                continue
+            items.append({
+                'product_id': item.product_id,
+                'cost': format(item.get_costo_neto().normalize(), 'f'),   # 'f' evita notacion 1E+2
+                'qty': str(item.qty),
+            })
+
         context = {
             'purchase': purchase,
-            'items': items,
-            'suppliers': suppliers,
+            'suppliers': Supplier.objects.all().order_by('name'),
             'products': products,
             'products_json': json.dumps(products_json),
+            'items_json': json.dumps(items),
         }
         return render(request, self.template_name, context)
 
@@ -226,68 +198,23 @@ class PurchaseUpdate(LoginRequiredMixin, PermissionRequiredMixin, generic.View):
         
         try:
             with transaction.atomic():
-                supplier_id = request.POST.get('supplier')
-                numero_comprobante = request.POST.get('numero_comprobante', '')
-                product_ids = request.POST.getlist('product[]')
-                costs = request.POST.getlist('cost[]')
-                qtys = request.POST.getlist('qty[]')
-
-                if not product_ids:
+                renglones = _renglones_del_formulario(request)
+                if not renglones:
                     messages.error(request, "Debe agregar al menos un producto.")
                     return redirect('purchase:purchase_update', pk=pk)
 
-                supplier = Supplier.objects.get(id=supplier_id)
-                purchase.supplier = supplier
-                purchase.numero_comprobante = numero_comprobante
+                purchase.supplier = Supplier.objects.get(id=request.POST.get('supplier'))
+                purchase.numero_comprobante = request.POST.get('numero_comprobante', '')
 
-                # Lo que esta compra sumaba al stock ANTES de editarla.
-                cantidades_antes = purchase.cantidades_por_producto()
+                # Misma funcion que al crear: reparte IVA/percepcion, ajusta el stock
+                # por la diferencia y actualiza los costos.
+                purchase.guardar_renglones(
+                    renglones,
+                    iva_monto=_numero(request.POST.get('iva_pct')),
+                    perc_monto=_numero(request.POST.get('perc_pct')),
+                )
 
-                # Borrar los renglones anteriores y recrearlos.
-                # Borrado masivo y bulk_create NO llaman a delete()/save() del modelo,
-                # asi que NO tocan el stock: el stock se ajusta una sola vez, mas abajo,
-                # por la diferencia entre lo viejo y lo nuevo.
-                purchase.items.all().delete()
-
-                total = Decimal(0)
-                nuevos_items = []
-                for i in range(len(product_ids)):
-                    product = Products.objects.get(id=product_ids[i])
-                    cost = Decimal(str(costs[i]).replace(',', '.'))
-                    qty = Decimal(str(qtys[i]).replace(',', '.'))
-                    item = PurchaseProduct(
-                        purchase=purchase,
-                        supplier=supplier,
-                        product=product,
-                        cost=cost,
-                        qty=qty,
-                        total=cost * qty,
-                    )
-                    item.clean()  # valida costo y cantidad > 0
-                    nuevos_items.append(item)
-                    total += cost * qty
-                PurchaseProduct.objects.bulk_create(nuevos_items)
-
-                purchase.total = total
-                purchase.save()
-
-                # Ajustar el stock por la diferencia (nuevo - viejo).
-                aplicar_diferencia_stock(cantidades_antes, purchase.cantidades_por_producto())
-
-                # Costo de cada producto = promedio ponderado de sus renglones EN ESTA compra.
-                # (si el producto aparece una sola vez, es identico al costo de ese renglon)
-                _acc = {}
-                for _it in purchase.items.select_related('product'):
-                    if not _it.product:
-                        continue
-                    _d = _acc.setdefault(_it.product_id, {'cq': Decimal('0'), 'q': Decimal('0'), 'prod': _it.product})
-                    _d['cq'] += _it.cost * _it.qty
-                    _d['q'] += _it.qty
-                for _d in _acc.values():
-                    if _d['q'] > 0:
-                        _d['prod'].update_cost((_d['cq'] / _d['q']).quantize(Decimal('0.0001')))
-
-                messages.success(request, f"Compra #{purchase.id} actualizada. Total: AR$ {total:,.2f}")
+                messages.success(request, f"Compra #{purchase.id} actualizada. Total: AR$ {purchase.total:,.2f}")
                 return redirect('purchase:purchase_list')
 
         except Exception as e:
@@ -295,22 +222,58 @@ class PurchaseUpdate(LoginRequiredMixin, PermissionRequiredMixin, generic.View):
             return redirect('purchase:purchase_update', pk=pk)
 
 
+class PurchaseDetail(LoginRequiredMixin, PermissionRequiredMixin, generic.View):
+    """Ver una compra, solo lectura (no modifica nada)."""
+    template_name = 'purchases/purchase_detail.html'
+    permission_required = 'purchase.view_purchaseproduct'
+
+    def get(self, request, pk):
+        purchase = get_object_or_404(Purchase, pk=pk)
+        items = list(purchase.items.select_related('product').order_by('id'))
+        subtotal = Decimal('0')
+        for item in items:
+            item.importe_factura = item.get_costo_neto() * item.qty
+            subtotal += item.importe_factura
+        return render(request, self.template_name, {
+            'purchase': purchase,
+            'items': items,
+            'subtotal': subtotal,
+        })
+
+
 class PurchaseDelete(SuccessMessageMixin, PermissionRequiredMixin, generic.DeleteView):
     model = Purchase
     template_name = 'purchases/purchase_delete.html'
     success_url = reverse_lazy('purchase:purchase_list')
-    success_message = "Compra eliminada exitosamente."
+    success_message = "Compra eliminada. El stock de sus productos fue descontado."
     permission_required = 'purchase.delete_purchaseproduct'
 
-    def delete(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        self.object.delete()  
-        return super().delete(request, *args, **kwargs)
-    
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['purchase'] = self.get_object() 
+        context['purchase'] = self.object
+        context['items'] = self.object.items.select_related('product').order_by('id')
         return context
+
+    def form_valid(self, form):
+        # Anotar los productos ANTES de borrar, para avisar despues cuales revisar.
+        compra = self.object
+        productos = [f"{it.product.code} - {it.product.name}"
+                     for it in compra.items.select_related('product').order_by('id') if it.product]
+        estaba_pagada = compra.pagado
+        respuesta = super().form_valid(form)   # borra la compra (Purchase.delete devuelve el stock)
+
+        if productos:
+            messages.warning(
+                self.request,
+                "El costo y los precios NO se modificaron. Revisalos en Actualizar Precios: "
+                + "; ".join(productos) + "."
+            )
+        if estaba_pagada:
+            messages.warning(
+                self.request,
+                "La compra estaba pagada: el pago en Caja no se revirtió solo. Corregilo en Caja y Banco."
+            )
+        return respuesta
 
 @login_required
 def purchase_payment_list(request):
@@ -402,14 +365,5 @@ def purchase_pagar_view(request, pk):
 @login_required
 def api_productos_compra(request):
     """Devuelve lista de productos disponibles para compra en formato JSON."""
-    products = Products.objects.all().order_by('name')
-    products_json = {}
-    for product in products:
-        products_json[product.id] = {
-            'id': product.id,
-            'code': product.code,
-            'name': product.name,
-            'cost': float(product.cost),
-            'codigo_barras': product.codigo_barras or '',
-        }
+    _products, products_json = _productos_para_pantalla()
     return JsonResponse(products_json)

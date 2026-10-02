@@ -1,65 +1,62 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load formato %}
 {% block pageContent %}
 <div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
     <div class="mdc-card py-2">
         <div class="d-flex justify-content-between align-items-center">
-            <h4 class="card-title mb-0">Eliminar Compra</h4>
+            <h4 class="card-title mb-0">Eliminar Compra #{{ purchase.id }}</h4>
         </div>
     </div>
 </div>
 <div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
     <div class="mdc-card">
         <div class="p-4">
-            <div class="row">
-                <div class="col-md-6">
-                    
-                    <div class="form-group">
-                        <label for="product" class="form-label">Producto</label>
-                        <input type="text" id="product" class="form-control" value="{{ purchase.product }}" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label for="cost" class="form-label">Costo</label>
-                        <input type="text" id="cost" class="form-control" value="{{ purchase.cost }}" readonly>
-                    </div>
-                    
-                </div>
-                <div class="col-md-6">
-                    
-                    <div class="form-group">
-                        <label for="supplierName" class="form-label">Proveedor</label>
-                        <input type="text" id="supplierName" class="form-control" value="{{ purchase.supplier }}" readonly>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="qty" class="form-label">Cantidad</label>
-                        <input type="text" id="qty" class="form-control" value="{{ purchase.qty }}" readonly>
-                    </div>
-                    
-                </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="total" class="form-label">Importe Total</label>
-                            <input type="text" id="total" class="form-control" value="{{ purchase.total }}" readonly>
-                        </div>
-                    </div>
-                </div>
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label for="dateAdded" class="form-label">Fecha de Creación</label>
-                        <input type="text" id="dateAdded" class="form-control" value="{{ purchase.date_added }}" readonly>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label for="dateUpdated" class="form-label">Fecha de Actualización</label>
-                        <input type="text" id="dateUpdated" class="form-control" value="{{ purchase.date_updated }}" readonly>
-                    </div>
-                </div>
+
+            <div class="row mb-3">
+                <div class="col-md-4"><span class="text-muted">Proveedor</span><br><strong>{{ purchase.supplier|default:"—" }}</strong></div>
+                <div class="col-md-3"><span class="text-muted">N° de comprobante</span><br><strong>{{ purchase.numero_comprobante|default:"—" }}</strong></div>
+                <div class="col-md-3"><span class="text-muted">Fecha de carga</span><br><strong>{{ purchase.date_added|date:"d-m-Y H:i" }}</strong></div>
+                <div class="col-md-2"><span class="text-muted">Total</span><br><strong>{{ purchase.total|pesos }}</strong></div>
             </div>
+
+            <div class="alert alert-warning">
+                <strong>Qué pasa al eliminar esta compra:</strong>
+                <ul class="mb-0">
+                    <li>El <strong>stock</strong> de estos productos <strong>se descuenta</strong> (se devuelve lo que la compra había sumado).</li>
+                    <li>El <strong>costo y los precios</strong> de estos productos <strong>NO cambian</strong>: quedan como están hoy.
+                        Si esta compra los había modificado, revisalos después en <em>Actualizar Precios</em>.</li>
+                    {% if purchase.pagado %}
+                    <li>Esta compra <strong>ya está pagada</strong>: el pago registrado en Caja <strong>no se revierte solo</strong>.
+                        Hay que corregirlo a mano en <em>Caja y Banco</em>.</li>
+                    {% endif %}
+                </ul>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm">
+                    <thead class="bg-dark bg-gradient bg-opacity-50 text-light">
+                        <tr>
+                            <th class="text-center">Código</th>
+                            <th class="text-center">Producto</th>
+                            <th class="text-center">Cantidad que se descuenta</th>
+                            <th class="text-center">Stock actual</th>
+                            <th class="text-center">Costo actual (no cambia)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td class="text-center">{{ item.product.code|default:"—" }}</td>
+                            <td>{{ item.product.name|default:"(producto eliminado)" }}</td>
+                            <td class="text-center">{{ item.qty|cantidad }}</td>
+                            <td class="text-center">{{ item.product.quantity|cantidad }}</td>
+                            <td class="text-end">{{ item.product.cost|pesos }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
             <form method="post" action="{% url 'purchase:purchase_delete' purchase.pk %}">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-danger">Eliminar Compra</button>
@@ -68,38 +65,4 @@
         </div>
     </div>
 </div>
-{% endblock %}
-{% if messages %}
-<div class="messages">
-    {% for message in messages %}
-    <div class="alert {{ message.tags }}">
-        {{ message }}
-    </div>
-    {% endfor %}
-</div>
-{% endif %}
-{% block ScriptBlock %}
-<style>
-    .container {
-        background-color: #f8f9fa;
-        padding: 20px;
-        border-radius: 8px;
-    }
-    .bg-primary {
-        background-color: #007bff !important;
-    }
-    .btn-danger {
-        background-color: #dc3545;
-    }
-    .btn-secondary {
-        background-color: #6c757d;
-    }
-    .form-group {
-        margin-bottom: 20px;
-    }
-    .form-label {
-        font-weight: bold;
-        margin-bottom: 5px;
-    }
-</style>
 {% endblock %}

@@ -352,9 +352,10 @@ def guardar_cambios_precios(request):
                     producto = Products.objects.get(id=cambio['id'])
                     
                     # Actualizar valores
-                    nuevo_costo = Decimal(str(cambio['cost']))
-                    porc_minor = Decimal(str(cambio['porc_minorista']))
-                    porc_mayor = Decimal(str(cambio['porc_mayorista']))
+                    nuevo_costo = Decimal(str(cambio['cost'])).quantize(Decimal('0.01'))
+                    # El margen se guarda con 2 decimales (asi esta definido el campo).
+                    porc_minor = Decimal(str(cambio['porc_minorista'])).quantize(Decimal('0.01'))
+                    porc_mayor = Decimal(str(cambio['porc_mayorista'])).quantize(Decimal('0.01'))
                     
                     # Actualizar costo
                     # Guardar cada campo específicamente
@@ -364,8 +365,11 @@ def guardar_cambios_precios(request):
                     producto.precio_minorista = round(nuevo_costo * (1 + porc_minor / 100), 2)
                     producto.precio_mayorista = round(nuevo_costo * (1 + porc_mayor / 100), 2)
 
-                    # Guardar solo los campos modificados
-                    producto.save(update_fields=['cost', 'precio_minorista', 'precio_mayorista'])
+                    # Guardar solo los campos modificados.
+                    # IMPORTANTE: los margenes tambien. Si no se guardan, la proxima compra
+                    # recalcula el precio con el margen viejo (bug corregido el 02/10/2026).
+                    producto.save(update_fields=['cost', 'margen_minorista', 'margen_mayorista',
+                                                 'precio_minorista', 'precio_mayorista'])
 
                     # Verificar inmediatamente
                     producto.refresh_from_db()
@@ -414,23 +418,26 @@ def actualizacion_masiva_proveedor(request):
         
         actualizados = 0
         
-        for producto in productos:
-            if accion == 'aumentar_costo':
-                producto.cost = producto.cost * (1 + porcentaje / 100)
-            elif accion == 'disminuir_costo':
-                producto.cost = producto.cost * (1 - porcentaje / 100)
-            
-            # Recalcular precios
-            if porc_minorista is not None:
-                porc_min = Decimal(str(porc_minorista))
-                producto.precio_minorista = producto.cost * (1 + porc_min / 100)
-            
-            if porc_mayorista is not None:
-                porc_may = Decimal(str(porc_mayorista))
-                producto.precio_mayorista = producto.cost * (1 + porc_may / 100)
-            
-            producto.save()
-            actualizados += 1
+        # Todo o nada: si falla un producto, no queda ninguno a medio actualizar.
+        with transaction.atomic():
+            for producto in productos:
+                # El costo se redondea a centavos (el campo admite 2 decimales;
+                # sin redondear, el guardado fallaba siempre).
+                if accion == 'aumentar_costo':
+                    producto.cost = (producto.cost * (1 + porcentaje / 100)).quantize(Decimal('0.01'))
+                elif accion == 'disminuir_costo':
+                    producto.cost = (producto.cost * (1 - porcentaje / 100)).quantize(Decimal('0.01'))
+
+                # Margenes nuevos: hay que guardar el MARGEN; el precio lo calcula
+                # el modelo al guardar (precio = costo * (1 + margen / 100)).
+                if porc_minorista is not None:
+                    producto.margen_minorista = Decimal(str(porc_minorista)).quantize(Decimal('0.01'))
+
+                if porc_mayorista is not None:
+                    producto.margen_mayorista = Decimal(str(porc_mayorista)).quantize(Decimal('0.01'))
+
+                producto.save()
+                actualizados += 1
         
         return JsonResponse({
             'success': True,

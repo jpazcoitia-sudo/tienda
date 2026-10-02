@@ -91,6 +91,84 @@ class Purchase(models.Model):
                 cantidades[item.product_id] = cantidades.get(item.product_id, Decimal('0')) + item.qty
         return cantidades
 
+    def guardar_renglones(self, renglones, iva_monto=Decimal('0'), perc_monto=Decimal('0')):
+        """
+        Guarda (o reemplaza) los renglones de la compra. Lo usan CREAR y EDITAR,
+        asi las dos pantallas hacen exactamente lo mismo.
+
+        renglones: lista de (producto, costo_de_factura, cantidad)
+                   El costo es el de la factura, SIN IVA ni percepcion.
+
+        Que hace:
+          1. Reparte IVA + percepcion entre los renglones, en proporcion a su importe.
+             costo final = costo de factura + parte del impuesto que le toca.
+          2. Guarda en cada renglon el costo final (cost) y el de factura (costo_neto).
+          3. Actualiza los totales de la compra (subtotal, IVA, percepcion, total).
+          4. Ajusta el stock por la DIFERENCIA con lo que la compra tenia antes
+             (en una compra nueva, antes no tenia nada).
+          5. Actualiza el costo de cada producto (promedio ponderado dentro de la compra).
+
+        Llamar dentro de transaction.atomic().
+        """
+        iva_monto = Decimal(iva_monto or 0)
+        perc_monto = Decimal(perc_monto or 0)
+        if iva_monto < 0 or perc_monto < 0:
+            raise ValidationError("El IVA y la percepcion no pueden ser negativos.")
+
+        for _producto, costo_neto, qty in renglones:
+            if qty <= 0:
+                raise ValidationError("La cantidad debe ser mayor a cero.")
+            if costo_neto <= 0:
+                raise ValidationError("El costo debe ser mayor a cero.")
+
+        cantidades_antes = self.cantidades_por_producto()
+
+        # Borrado masivo y bulk_create NO llaman a delete()/save() del modelo:
+        # no tocan el stock. El stock se ajusta una sola vez, mas abajo.
+        self.items.all().delete()
+
+        subtotal = sum((costo * qty for _p, costo, qty in renglones), Decimal('0'))
+        total_impuestos = iva_monto + perc_monto
+        total = Decimal('0')
+        nuevos = []
+        for producto, costo_neto, qty in renglones:
+            linea = costo_neto * qty
+            proporcion = linea / subtotal if subtotal > 0 else Decimal('0')
+            impuesto_linea = total_impuestos * proporcion
+            costo_final = costo_neto + (impuesto_linea / qty)
+            costo_guardado = costo_final.quantize(Decimal('0.0001'))
+            nuevos.append(PurchaseProduct(
+                purchase=self,
+                supplier=self.supplier,
+                product=producto,
+                cost=costo_guardado,
+                costo_neto=costo_neto,
+                qty=qty,
+                total=costo_guardado * qty,
+            ))
+            total += costo_final * qty
+        PurchaseProduct.objects.bulk_create(nuevos)
+
+        self.total = total
+        self.subtotal_productos = subtotal
+        self.iva_monto = iva_monto
+        self.perc_monto = perc_monto
+        self.save()
+
+        aplicar_diferencia_stock(cantidades_antes, self.cantidades_por_producto())
+
+        # Costo de cada producto = promedio ponderado de sus renglones EN ESTA compra.
+        acumulado = {}
+        for item in self.items.select_related('product'):
+            if not item.product:
+                continue
+            d = acumulado.setdefault(item.product_id, {'cq': Decimal('0'), 'q': Decimal('0'), 'prod': item.product})
+            d['cq'] += item.cost * item.qty
+            d['q'] += item.qty
+        for d in acumulado.values():
+            if d['q'] > 0:
+                d['prod'].update_cost((d['cq'] / d['q']).quantize(Decimal('0.0001')))
+
     def delete(self, *args, **kwargs):
         """
         Al borrar una compra hay que devolver el stock que habia sumado.
@@ -127,6 +205,10 @@ class PurchaseProduct(models.Model):
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True)
     product = models.ForeignKey(Products, on_delete=models.SET_NULL, null=True)
     cost = models.DecimalField(max_digits=18, decimal_places=8, default=0)
+    # Costo de la factura, antes de sumarle la parte de IVA/percepcion.
+    # (cost = costo final, con el impuesto repartido adentro)
+    costo_neto = models.DecimalField(max_digits=18, decimal_places=8, null=True, blank=True,
+                                     verbose_name='Costo de factura (sin impuestos)')
     qty = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=18, decimal_places=8, editable=False, default=0)
     date_added = models.DateTimeField(default=timezone.now)
@@ -166,5 +248,9 @@ class PurchaseProduct(models.Model):
                 # No se toca el costo: restarle el costo del renglon lo dejaba en $0.
             super().delete(*args, **kwargs)
             
+    def get_costo_neto(self):
+        """Costo de factura del renglon. Si no esta guardado (dato viejo), usa el costo final."""
+        return self.costo_neto if self.costo_neto is not None else self.cost
+
     def __str__(self):
         return f"{self.product} de {self.supplier} - {self.qty} @ {self.cost} cada uno"

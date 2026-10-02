@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% load formato %}
+
+{% block pageContent %}
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card py-2">
+        <div class="d-flex justify-content-between align-items-center">
+            <h4 class="card-title mb-0">Compra #{{ purchase.id }}</h4>
+            <div class="text-start">
+                <a href="{% url 'purchase:purchase_list' %}" class="btn btn-secondary btn-sm">Volver a la lista</a>
+                {% if perms.purchase.change_purchaseproduct %}
+                <a href="{% url 'purchase:purchase_update' purchase.pk %}" class="btn btn-primary btn-sm">
+                    <i class="mdi mdi-pencil"></i> Editar
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mdc-layout-grid__cell stretch-card mdc-layout-grid__cell--span-12">
+    <div class="mdc-card">
+        <div class="p-4">
+
+            <div class="row mb-3">
+                <div class="col-md-4"><span class="text-muted">Proveedor</span><br><strong>{{ purchase.supplier|default:"—" }}</strong></div>
+                <div class="col-md-3"><span class="text-muted">N° de comprobante</span><br><strong>{{ purchase.numero_comprobante|default:"—" }}</strong></div>
+                <div class="col-md-3"><span class="text-muted">Fecha de carga</span><br><strong>{{ purchase.date_added|date:"d-m-Y H:i" }}</strong></div>
+                <div class="col-md-2"><span class="text-muted">Pago</span><br>
+                    <span class="badge bg-{{ purchase.get_estado_pago_badge_class }}">{{ purchase.get_estado_pago }}</span>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm" id="detalle-compra">
+                    <thead class="bg-dark bg-gradient bg-opacity-50 text-light">
+                        <tr>
+                            <th class="text-center">Código</th>
+                            <th class="text-center">Producto</th>
+                            <th class="text-center">Cantidad</th>
+                            <th class="text-center">Costo de factura</th>
+                            <th class="text-center">Costo final (con impuestos)</th>
+                            <th class="text-center">Importe de factura</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td class="text-center">{{ item.product.code|default:"—" }}</td>
+                            <td>{{ item.product.name|default:"(producto eliminado)" }}</td>
+                            <td class="text-center">{{ item.qty|cantidad }}</td>
+                            <td class="text-end">{{ item.get_costo_neto|pesos }}</td>
+                            <td class="text-end">{{ item.cost|pesos }}</td>
+                            <td class="text-end">{{ item.importe_factura|pesos }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="row justify-content-end">
+                <div class="col-md-5">
+                    <div class="p-2 bg-light rounded">
+                        <div class="d-flex justify-content-between"><span>Subtotal productos:</span><span>{{ subtotal|pesos }}</span></div>
+                        <div class="d-flex justify-content-between"><span>IVA:</span><span>{{ purchase.iva_monto|pesos }}</span></div>
+                        <div class="d-flex justify-content-between"><span>Percepción:</span><span>{{ purchase.perc_monto|pesos }}</span></div>
+                        <hr class="my-1">
+                        <div class="d-flex justify-content-between fw-bold"><span>Total:</span><span>{{ purchase.total|pesos }}</span></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

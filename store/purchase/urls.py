@@ -10,6 +10,7 @@ urlpatterns = [
     
     path('purchase/', PurchaseList.as_view(), name='purchase_list'),
     path('purchase/new/', PurchaseCreate.as_view(), name='purchase_create'),
+    path('purchase/<int:pk>/', PurchaseDetail.as_view(), name='purchase_detail'),
     path('purchase/edit/<int:pk>/', PurchaseUpdate.as_view(), name='purchase_update'),
     path('purchase/delete/<int:pk>/', PurchaseDelete.as_view(), name='purchase_delete'),
     path('pagos/', purchase_payment_list, name='payment_list'),

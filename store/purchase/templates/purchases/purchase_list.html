@@ -46,6 +46,9 @@
             <td class="text-center" data-order="{{ purchase.date_added|date:'Y-m-d H:i:s' }}">{{ purchase.date_added|date:"d-m-Y H:i" }}</td>
             
             <td class="text-center">
+              <a href="{% url 'purchase:purchase_detail' purchase.pk %}" class="btn btn-info btn-sm" title="Ver">
+                  <i class="mdi mdi-eye"></i>
+              </a>
               <a href="{% url 'purchase:purchase_update' purchase.pk %}" class="btn btn-primary btn-sm" title="Editar">
                   <i class="mdi mdi-pencil"></i>
               </a>

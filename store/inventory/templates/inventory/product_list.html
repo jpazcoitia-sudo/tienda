@@ -159,6 +159,11 @@
         "responsive": true,
         "lengthChange": false,
         "autoWidth": false,
+        // Recordar pagina, busqueda y orden mientras la pestaña este abierta:
+        // al editar un producto y volver, la lista queda donde estaba.
+        // (stateDuration -1 = se guarda solo para esta pestaña; al cerrarla se reinicia)
+        "stateSave": true,
+        "stateDuration": -1,
         "language": {
             "search": "Buscar:",
             "lengthMenu": "Mostrar _MENU_ registros",
