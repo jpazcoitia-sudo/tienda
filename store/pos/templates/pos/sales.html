@@ -24,7 +24,7 @@
                 <tbody>
                     {% for sale in sale_data %}
                     <tr>
-                        <td class="px-2 py-1 text-center">{{ sale.cliente }}</td>
+                        <td class="px-2 py-1 text-center">{{ sale.cliente_nombre }}</td>
                         <td class="px-2 py-1 text-center" data-order="{{ sale.date_added|date:'Y-m-d H:i:s' }}">{{ sale.date_added|date:'d-m-Y H:i' }}</td>
                         <td class="px-2 py-1 text-center">{{ sale.vendedor_nombre }}</td>
                         <td class="px-2 py-1 text-rigth">
